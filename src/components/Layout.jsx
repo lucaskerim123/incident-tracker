@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, AlertTriangle, Users, Briefcase, FileText, Settings, LogOut, Shield } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { usePermissions } from '../hooks/usePermissions'
+import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
 
 const navItems = [
   { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -31,14 +31,16 @@ function NavItem({ to, label, icon: Icon, exact, mobile }) {
 }
 
 export default function Layout() {
-  const { user, signOut } = useAuth()
-  const { isAdmin } = usePermissions()
+  const { userCode, signOut } = useAuth()
+  const { role, can } = usePermissions()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
     await signOut()
     navigate('/login')
   }
+
+  const rs = ROLE_STYLES[role] ?? ROLE_STYLES.viewer
 
   return (
     <div className="flex min-h-screen" style={{ background: '#0f1117' }}>
@@ -50,21 +52,22 @@ export default function Layout() {
             <Shield size={20} className="text-indigo-400" />
             <span className="font-semibold text-slate-100 text-sm">Incident Tracker</span>
           </div>
-          {isAdmin && (
-            <span className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-500/15 px-1.5 py-0.5 rounded">
-              Admin
+          {role && (
+            <span className="mt-1.5 inline-block text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              style={{ background: rs.bg, color: rs.text }}>
+              {ROLE_LABELS[role] ?? role}
             </span>
           )}
         </div>
 
         <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5 overflow-y-auto">
           {navItems.map(item => <NavItem key={item.to} {...item} />)}
-          {isAdmin && <NavItem to="/settings" label="Settings" icon={Settings} />}
+          {can.manageUsers && <NavItem to="/settings" label="Settings" icon={Settings} />}
         </nav>
 
         <div className="px-2 py-3 border-t" style={{ borderColor: '#2a2d3a' }}>
           <div className="px-3 py-1 mb-1">
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            <p className="text-xs text-slate-500 font-mono">ID: {userCode ?? '—'}</p>
           </div>
           <button
             onClick={handleSignOut}
@@ -98,7 +101,7 @@ export default function Layout() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t z-10 flex"
           style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
           {navItems.map(item => <NavItem key={item.to} {...item} mobile />)}
-          {isAdmin && <NavItem to="/settings" label="Settings" icon={Settings} mobile />}
+          {can.manageUsers && <NavItem to="/settings" label="Settings" icon={Settings} mobile />}
         </nav>
       </div>
     </div>
