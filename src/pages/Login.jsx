@@ -3,24 +3,22 @@ import { Shield, Hash, Lock, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { Navigate } from 'react-router-dom'
 
-const onlyDigits = (v) => v.replace(/\D/g, '').slice(0, 6)
-
 export default function Login() {
   const { session, signInWithId, registerWithInvite } = useAuth()
   const [tab, setTab] = useState('login')
 
   // Login state
   const [userId, setUserId] = useState('')
-  const [pin, setPin] = useState('')
-  const [showPin, setShowPin] = useState(false)
+  const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   // Register state
   const [regId, setRegId] = useState('')
   const [inviteToken, setInviteToken] = useState('')
-  const [newPin, setNewPin] = useState('')
-  const [showRegPin, setShowRegPin] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [showRegPw, setShowRegPw] = useState(false)
   const [regLoading, setRegLoading] = useState(false)
   const [regError, setRegError] = useState('')
   const [regDone, setRegDone] = useState(false)
@@ -29,20 +27,20 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault()
-    if (!userId.trim() || pin.length < 4) return
+    if (!userId.trim() || !password) return
     setLoading(true); setError('')
-    const { error } = await signInWithId(userId.trim(), pin)
+    const { error } = await signInWithId(userId.trim(), password)
     setLoading(false)
-    if (error) setError('Invalid ID or PIN.')
+    if (error) setError('Invalid ID or password.')
   }
 
   const handleRegister = async (e) => {
     e.preventDefault()
-    if (!regId.trim() || !inviteToken.trim() || newPin.length < 4) {
-      setRegError('Please fill all fields. PIN must be 4–6 digits.'); return
+    if (!regId.trim() || !inviteToken.trim() || !newPassword) {
+      setRegError('Please fill all fields.'); return
     }
     setRegLoading(true); setRegError('')
-    const { error } = await registerWithInvite(regId.trim(), inviteToken.trim(), newPin)
+    const { error } = await registerWithInvite(regId.trim(), inviteToken.trim(), newPassword)
     setRegLoading(false)
     if (error) setRegError(typeof error === 'string' ? error : error.message)
     else setRegDone(true)
@@ -79,30 +77,24 @@ export default function Login() {
             <form onSubmit={handleLogin} className="flex flex-col gap-3">
               <div className="relative">
                 <Hash size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                <input type="text" inputMode="numeric" placeholder="ID (e.g. 1000)"
+                <input type="text" inputMode="numeric" placeholder="Access ID (e.g. 1000)"
                   required value={userId}
                   onChange={e => setUserId(e.target.value.replace(/\D/g, ''))}
                   className={`${inputClass} pl-9`} style={inputStyle} />
               </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  inputMode="numeric"
-                  placeholder="PIN (4–6 digits)"
-                  required
-                  value={pin}
-                  onChange={e => setPin(onlyDigits(e.target.value))}
-                  className={`${inputClass} pl-9 pr-10`}
-                  style={inputStyle}
-                />
-                <button type="button" onClick={() => setShowPin(v => !v)}
+                <input type={showPw ? 'text' : 'password'} placeholder="Password"
+                  required value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className={`${inputClass} pl-9 pr-10`} style={inputStyle} />
+                <button type="button" onClick={() => setShowPw(v => !v)}
                   className="absolute right-3 top-3.5 text-slate-500 hover:text-slate-300">
-                  {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               {error && <p className="text-xs text-red-400">{error}</p>}
-              <button type="submit" disabled={loading || pin.length < 4}
+              <button type="submit" disabled={loading}
                 className="w-full py-3 rounded-xl font-semibold text-white mt-1 disabled:opacity-50"
                 style={{ background: '#6366f1' }}>
                 {loading ? 'Signing in…' : 'Sign In'}
@@ -115,15 +107,15 @@ export default function Login() {
                 <UserPlus size={24} className="text-emerald-400" />
               </div>
               <p className="font-semibold text-slate-100">Account created!</p>
-              <p className="text-sm text-slate-400 mt-1">Sign in with your ID and PIN.</p>
-              <button onClick={() => { setTab('login'); setRegDone(false); setRegId(''); setInviteToken(''); setNewPin('') }}
+              <p className="text-sm text-slate-400 mt-1">Sign in with your ID and password.</p>
+              <button onClick={() => { setTab('login'); setRegDone(false); setRegId(''); setInviteToken(''); setNewPassword('') }}
                 className="mt-4 text-xs text-indigo-400 hover:text-indigo-300">
                 Go to Sign In →
               </button>
             </div>
           ) : (
             <form onSubmit={handleRegister} className="flex flex-col gap-3">
-              <p className="text-xs text-slate-500 mb-1">Enter the ID and invite code your admin gave you, then set your PIN.</p>
+              <p className="text-xs text-slate-500 mb-1">Enter the ID and invite code your admin gave you, then set your password.</p>
               <div className="relative">
                 <Hash size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
                 <input type="text" inputMode="numeric" placeholder="Your Access ID (e.g. 1001)"
@@ -137,26 +129,17 @@ export default function Login() {
                 className={inputClass} style={inputStyle} />
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                <input
-                  type={showRegPin ? 'text' : 'password'}
-                  inputMode="numeric"
-                  placeholder="Set your PIN (4–6 digits)"
-                  required
-                  value={newPin}
-                  onChange={e => setNewPin(onlyDigits(e.target.value))}
-                  className={`${inputClass} pl-9 pr-10`}
-                  style={inputStyle}
-                />
-                <button type="button" onClick={() => setShowRegPin(v => !v)}
+                <input type={showRegPw ? 'text' : 'password'} placeholder="Set your password (min 6 chars)"
+                  required minLength={6} value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  className={`${inputClass} pl-9 pr-10`} style={inputStyle} />
+                <button type="button" onClick={() => setShowRegPw(v => !v)}
                   className="absolute right-3 top-3.5 text-slate-500 hover:text-slate-300">
-                  {showRegPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showRegPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {newPin.length > 0 && newPin.length < 4 && (
-                <p className="text-xs text-slate-500">Enter {4 - newPin.length} more digit{4 - newPin.length !== 1 ? 's' : ''}</p>
-              )}
               {regError && <p className="text-xs text-red-400">{regError}</p>}
-              <button type="submit" disabled={regLoading || newPin.length < 4}
+              <button type="submit" disabled={regLoading}
                 className="w-full py-3 rounded-xl font-semibold text-white mt-1 disabled:opacity-50"
                 style={{ background: '#6366f1' }}>
                 {regLoading ? 'Setting up…' : 'Create Account'}

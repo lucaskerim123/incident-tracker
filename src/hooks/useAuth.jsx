@@ -6,12 +6,6 @@ const AuthContext = createContext(null)
 const ID_DOMAIN = 'it.local'
 const idToEmail = (id) => `${id}@${ID_DOMAIN}`
 
-// Supabase Auth enforces a 6-char minimum password length.
-// We pad short PINs with a fixed suffix so 4-digit PINs always pass validation.
-// The PIN the user types is the actual secret — this suffix is just structural padding.
-const PIN_PAD = '--it'
-const padPin = (pin) => pin.length < 6 ? pin + PIN_PAD.slice(0, 6 - pin.length) : pin
-
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [userRole, setUserRole] = useState(null)
@@ -45,10 +39,10 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }
 
-  const signInWithId = (id, pin) =>
-    supabase.auth.signInWithPassword({ email: idToEmail(id), password: padPin(pin) })
+  const signInWithId = (id, password) =>
+    supabase.auth.signInWithPassword({ email: idToEmail(id), password })
 
-  const registerWithInvite = async (id, token, pin) => {
+  const registerWithInvite = async (id, token, password) => {
     const { data: valid, error: valErr } = await supabase.rpc('validate_invitation', {
       p_user_code: id,
       p_token: token,
@@ -57,7 +51,7 @@ export function AuthProvider({ children }) {
 
     const { error } = await supabase.auth.signUp({
       email: idToEmail(id),
-      password: padPin(pin),
+      password,
     })
     if (error) return { error: error.message }
     return { error: null }
@@ -65,8 +59,8 @@ export function AuthProvider({ children }) {
 
   const signOut = () => supabase.auth.signOut()
 
-  const updatePasscode = (pin) =>
-    supabase.auth.updateUser({ password: padPin(pin) })
+  const updatePasscode = (password) =>
+    supabase.auth.updateUser({ password })
 
   return (
     <AuthContext.Provider value={{
