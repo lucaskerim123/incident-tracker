@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp } from 'lucide-react'
+import { Plus, TrendingUp, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [recent, setRecent] = useState([])
   const [stats, setStats] = useState({ total: 0, pending: 0, thisMonth: 0 })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -36,7 +37,7 @@ export default function Dashboard() {
         }).length,
       })
       setLoading(false)
-    })
+    }).catch(() => { setError(true); setLoading(false) })
   }, [user])
 
   return (
@@ -60,11 +61,19 @@ export default function Dashboard() {
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : error ? (
+        <div className="rounded-xl p-8 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <AlertCircle size={24} className="text-slate-500 mx-auto mb-2" />
+          <p className="text-slate-400 text-sm">Failed to load dashboard.</p>
+          <button onClick={() => { setError(false); setLoading(true) }}
+            className="mt-3 text-xs text-indigo-400 hover:text-indigo-300">
+            Retry
+          </button>
+        </div>
       ) : (
         <>
           <CaseBanner cases={cases} />
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-3 mb-4">
             {[
               { label: 'Total', value: stats.total },
@@ -78,7 +87,6 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Recent incidents */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <TrendingUp size={15} className="text-slate-400" />
@@ -107,7 +115,6 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* Mobile FAB */}
       {can.add && (
         <button onClick={() => navigate('/incidents/new')}
           className="md:hidden fixed bottom-20 right-4 w-12 h-12 rounded-full flex items-center justify-center shadow-lg z-10"

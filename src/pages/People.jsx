@@ -31,8 +31,6 @@ function PersonRow({ person, onSave, onDelete, canManage }) {
           </button>
         </div>
       </div>
-      <ConfirmDialog open={confirmDel} title="Remove Person" message={`Remove ${person.name} from the people list?`}
-        confirmLabel="Remove" onConfirm={() => onDelete(person.id)} onCancel={() => setConfirmDel(false)} />
     </div>
   )
 

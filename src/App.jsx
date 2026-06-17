@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
+import { usePermissions } from './hooks/usePermissions'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -13,6 +14,12 @@ import People from './pages/People'
 import CaseStatus from './pages/CaseStatus'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
+
+function RequireAdmin({ children }) {
+  const { can } = usePermissions()
+  if (!can.manageUsers) return <Navigate to="/" replace />
+  return children
+}
 
 function RequireAuth({ children }) {
   const { session, loading } = useAuth()
@@ -40,7 +47,7 @@ function AppRoutes() {
         <Route path="people" element={<People />} />
         <Route path="cases" element={<CaseStatus />} />
         <Route path="documents" element={<Documents />} />
-        <Route path="settings" element={<Settings />} />
+        <Route path="settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

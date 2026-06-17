@@ -18,7 +18,10 @@ export default function Register() {
   const [assignedCode, setAssignedCode] = useState(null)
 
   useEffect(() => {
-    supabase.rpc('has_any_users').then(({ data }) => setHasUsers(!!data))
+    supabase.rpc('has_any_users').then(({ data, error }) => {
+      // On error assume users exist (safer than showing first-user setup incorrectly)
+      setHasUsers(error ? true : !!data)
+    })
   }, [])
 
   if (session) return <Navigate to="/" replace />
@@ -40,7 +43,11 @@ export default function Register() {
       if (err) setError(err)
       else { setAssignedCode(userCode); setDone(true) }
     } else {
-      if (!regId.trim() || !inviteToken.trim() || !newPasscode) { setLoading(false); return }
+      if (!regId.trim() || !inviteToken.trim() || !newPasscode) {
+        setLoading(false)
+        setError('Please enter your Access ID, invite code, and a passcode.')
+        return
+      }
       const { error: err } = await registerWithInvite(regId.trim(), inviteToken.trim(), newPasscode)
       setLoading(false)
       if (err) setError(err)

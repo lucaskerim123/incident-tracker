@@ -20,12 +20,16 @@ export default function IncidentDetail() {
   const { can } = usePermissions()
   const [incident, setIncident] = useState(null)
   const [docs, setDocs] = useState([])
+  const [notFound, setNotFound] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     supabase.from('incidents').select('*').eq('id', id).single()
-      .then(({ data }) => setIncident(data))
+      .then(({ data, error }) => {
+        if (error || !data) setNotFound(true)
+        else setIncident(data)
+      })
     supabase.from('documents').select('*').eq('related_incident_id', id)
       .then(({ data }) => setDocs(data ?? []))
   }, [id])
@@ -35,6 +39,17 @@ export default function IncidentDetail() {
     await supabase.from('incidents').delete().eq('id', id)
     navigate('/incidents')
   }
+
+  if (notFound) return (
+    <div className="p-4 max-w-2xl mx-auto">
+      <button onClick={() => navigate(-1)} className="p-1.5 mb-4 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+        <ArrowLeft size={20} />
+      </button>
+      <div className="rounded-xl p-10 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+        <p className="text-slate-400 text-sm">Incident not found.</p>
+      </div>
+    </div>
+  )
 
   if (!incident) return (
     <div className="flex justify-center py-16">
@@ -121,7 +136,7 @@ export default function IncidentDetail() {
       </div>
 
       {docs.length > 0 && (
-        <div>
+        <div className="mb-3">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">Attached Documents</h3>
           <div className="flex flex-col gap-2">
             {docs.map(d => <DocumentViewer key={d.id} doc={d} />)}
@@ -139,7 +154,7 @@ export default function IncidentDetail() {
       <ConfirmDialog
         open={confirmDelete}
         title="Delete Incident"
-        message="This will permanently delete this incident. This cannot be undone."
+        message="This will permanently delete this incident and cannot be undone."
         confirmLabel={deleting ? 'Deleting…' : 'Delete'}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
