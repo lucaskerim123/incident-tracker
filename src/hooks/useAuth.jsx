@@ -43,11 +43,14 @@ export function AuthProvider({ children }) {
     supabase.auth.signInWithPassword({ email: idToEmail(id), password })
 
   const registerWithInvite = async (id, token, password) => {
-    const { data: valid, error: valErr } = await supabase.rpc('validate_invitation', {
-      p_user_code: id,
-      p_token: token,
-    })
-    if (valErr || !valid) return { error: 'Invalid ID or invite code.' }
+    const { data: hasUsers } = await supabase.rpc('has_any_users')
+    if (hasUsers) {
+      const { data: valid, error: valErr } = await supabase.rpc('validate_invitation', {
+        p_user_code: id,
+        p_token: token,
+      })
+      if (valErr || !valid) return { error: 'Invalid ID or invite code.' }
+    }
 
     const { error } = await supabase.auth.signUp({
       email: idToEmail(id),

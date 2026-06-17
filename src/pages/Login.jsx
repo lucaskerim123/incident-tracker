@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Shield, Hash, Lock, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
 import { Navigate } from 'react-router-dom'
 
 export default function Login() {
@@ -22,6 +23,13 @@ export default function Login() {
   const [regLoading, setRegLoading] = useState(false)
   const [regError, setRegError] = useState('')
   const [regDone, setRegDone] = useState(false)
+  const [isFirstUser, setIsFirstUser] = useState(false)
+
+  useEffect(() => {
+    supabase.rpc('has_any_users').then(({ data }) => {
+      setIsFirstUser(data === false)
+    })
+  }, [])
 
   if (session) return <Navigate to="/" replace />
 
@@ -36,7 +44,7 @@ export default function Login() {
 
   const handleRegister = async (e) => {
     e.preventDefault()
-    if (!regId.trim() || !inviteToken.trim() || !newPassword) {
+    if (!regId.trim() || (!isFirstUser && !inviteToken.trim()) || !newPassword) {
       setRegError('Please fill all fields.'); return
     }
     setRegLoading(true); setRegError('')
@@ -115,18 +123,24 @@ export default function Login() {
             </div>
           ) : (
             <form onSubmit={handleRegister} className="flex flex-col gap-3">
-              <p className="text-xs text-slate-500 mb-1">Enter the ID and invite code your admin gave you, then set your password.</p>
+              <p className="text-xs text-slate-500 mb-1">
+                {isFirstUser
+                  ? 'No accounts exist yet — you\'ll become the admin. Choose your Access ID and set a password.'
+                  : 'Enter the ID and invite code your admin gave you, then set your password.'}
+              </p>
               <div className="relative">
                 <Hash size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                <input type="text" inputMode="numeric" placeholder="Your Access ID (e.g. 1001)"
+                <input type="text" inputMode="numeric" placeholder={isFirstUser ? 'Choose an Access ID (e.g. 1000)' : 'Your Access ID (e.g. 1001)'}
                   required value={regId}
                   onChange={e => setRegId(e.target.value.replace(/\D/g, ''))}
                   className={`${inputClass} pl-9`} style={inputStyle} />
               </div>
-              <input type="text" placeholder="Invite code (from admin)"
-                required value={inviteToken}
-                onChange={e => setInviteToken(e.target.value.trim())}
-                className={inputClass} style={inputStyle} />
+              {!isFirstUser && (
+                <input type="text" placeholder="Invite code (from admin)"
+                  required value={inviteToken}
+                  onChange={e => setInviteToken(e.target.value.trim())}
+                  className={inputClass} style={inputStyle} />
+              )}
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
                 <input type={showRegPw ? 'text' : 'password'} placeholder="Set your password (min 6 chars)"
