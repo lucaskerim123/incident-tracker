@@ -45,9 +45,9 @@ export default function Settings() {
     e.preventDefault()
     if (!inviteEmail.trim()) return
     setInviting(true); setInviteMsg('')
-    const { error } = await supabase.auth.admin ?
-      supabase.from('invitations').insert({ email: inviteEmail, role: inviteRole, invited_by: user.id, accepted: false, token: crypto.randomUUID() }) :
-      supabase.from('invitations').insert({ email: inviteEmail, role: inviteRole, invited_by: user.id, accepted: false, token: crypto.randomUUID() })
+    const { error } = await supabase.from('invitations').insert({
+      email: inviteEmail, role: inviteRole, invited_by: user.id, accepted: false, token: crypto.randomUUID(),
+    })
     setInviting(false)
     if (error) setInviteMsg(`Error: ${error.message}`)
     else { setInviteMsg(`Invitation recorded for ${inviteEmail}. Share the app URL with them.`); setInviteEmail('') }
