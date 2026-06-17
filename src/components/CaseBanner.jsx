@@ -27,7 +27,7 @@ export default function CaseBanner({ cases = [] }) {
               <p className="text-xs text-indigo-300">Next Court Date</p>
             </div>
             <p className="text-sm font-semibold text-slate-100">{format(new Date(nextCourt.court_date), 'd MMM yyyy')}</p>
-            <p className="text-xs text-slate-400">{nextCourt.court_location}</p>
+            {nextCourt.court_location && <p className="text-xs text-slate-400">{nextCourt.court_location}</p>}
           </div>
         )}
         {daysToNext !== null && (

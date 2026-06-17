@@ -10,10 +10,10 @@ export default function AddIncident() {
   const { user } = useAuth()
   const { can } = usePermissions()
   const navigate = useNavigate()
-
-  if (!can.add) return <Navigate to="/incidents" replace />
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  if (!can.add) return <Navigate to="/incidents" replace />
 
   const handleSubmit = async (form) => {
     setLoading(true); setError('')

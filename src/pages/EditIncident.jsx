@@ -9,16 +9,32 @@ export default function EditIncident() {
   const { id } = useParams()
   const { can } = usePermissions()
   const navigate = useNavigate()
-
-  if (!can.edit) return <Navigate to={`/incidents/${id}`} replace />
   const [incident, setIncident] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
     supabase.from('incidents').select('*').eq('id', id).single()
-      .then(({ data }) => setIncident(data))
+      .then(({ data, error }) => {
+        if (error || !data) setFetchError(true)
+        else setIncident(data)
+      })
   }, [id])
+
+  if (!can.edit) return <Navigate to={`/incidents/${id}`} replace />
+
+  if (fetchError) return (
+    <div className="p-4 max-w-2xl mx-auto">
+      <p className="text-slate-400 text-sm">Incident not found.</p>
+    </div>
+  )
+
+  if (!incident) return (
+    <div className="flex justify-center py-16">
+      <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
 
   const handleSubmit = async (form) => {
     setLoading(true); setError('')
@@ -29,12 +45,6 @@ export default function EditIncident() {
     if (error) setError(error.message)
     else navigate(`/incidents/${id}`)
   }
-
-  if (!incident) return (
-    <div className="flex justify-center py-16">
-      <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
 
   return (
     <div className="p-4 max-w-2xl mx-auto">

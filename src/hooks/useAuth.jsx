@@ -30,9 +30,9 @@ export function AuthProvider({ children }) {
 
   async function fetchRole(userId) {
     const { data } = await supabase
-      .from('user_roles')
+      .from('users')
       .select('role, user_code')
-      .eq('user_id', userId)
+      .eq('id', userId)
       .single()
     setUserRole(data?.role ?? 'viewer')
     setUserCode(data?.user_code ?? null)
