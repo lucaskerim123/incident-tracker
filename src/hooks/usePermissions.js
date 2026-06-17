@@ -1,18 +1,18 @@
 import { useAuth } from './useAuth'
 
-// Role hierarchy: viewer < lawyer < editor < admin
+// Matches the user_roles table seed data in migration 003
 const PERMISSIONS = {
   admin: {
     view: true, add: true, edit: true, delete: true,
     upload: true, managePeople: true, manageCases: true,
     manageUsers: true, inviteUsers: true, export: true,
   },
-  editor: {
-    view: true, add: true, edit: true, delete: true,
-    upload: true, managePeople: true, manageCases: true,
-    manageUsers: true, inviteUsers: false, export: true,
-  },
   lawyer: {
+    view: true, add: true, edit: true, delete: false,
+    upload: true, managePeople: true, manageCases: true,
+    manageUsers: false, inviteUsers: false, export: true,
+  },
+  support: {
     view: true, add: true, edit: false, delete: false,
     upload: true, managePeople: false, manageCases: false,
     manageUsers: false, inviteUsers: false, export: false,
@@ -25,17 +25,17 @@ const PERMISSIONS = {
 }
 
 export const ROLE_LABELS = {
-  admin:  'Admin',
-  editor: 'Editor',
-  lawyer: 'Lawyer',
-  viewer: 'Viewer',
+  admin:   'Admin',
+  lawyer:  'Lawyer',
+  support: 'Support',
+  viewer:  'Viewer',
 }
 
 export const ROLE_STYLES = {
-  admin:  { bg: 'rgba(99,102,241,0.15)',  text: '#818cf8' },
-  editor: { bg: 'rgba(249,115,22,0.15)',  text: '#fb923c' },
-  lawyer: { bg: 'rgba(16,185,129,0.15)',  text: '#34d399' },
-  viewer: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
+  admin:   { bg: 'rgba(99,102,241,0.15)',  text: '#818cf8' },
+  lawyer:  { bg: 'rgba(16,185,129,0.15)',  text: '#34d399' },
+  support: { bg: 'rgba(249,115,22,0.15)',  text: '#fb923c' },
+  viewer:  { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
 }
 
 export function usePermissions() {
@@ -44,7 +44,6 @@ export function usePermissions() {
   return {
     role,
     isAdmin: role === 'admin',
-    isEditor: role === 'editor' || role === 'admin',
     can: PERMISSIONS[role] ?? PERMISSIONS.viewer,
   }
 }
