@@ -1,5 +1,5 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, AlertTriangle, Users, Briefcase, FileText, Settings, LogOut, Shield } from 'lucide-react'
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, AlertTriangle, Users, Briefcase, FileText, Settings, LogOut, Shield, UserCircle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
 
@@ -66,9 +66,11 @@ export default function Layout() {
         </nav>
 
         <div className="px-2 py-3 border-t" style={{ borderColor: '#2a2d3a' }}>
-          <div className="px-3 py-1 mb-1">
-            <p className="text-xs text-slate-500 font-mono">ID: {userCode ?? '—'}</p>
-          </div>
+          <Link to="/profile"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors w-full mb-0.5">
+            <UserCircle size={18} />
+            <span className="font-mono text-xs">#{userCode ?? '—'}</span>
+          </Link>
           <button
             onClick={handleSignOut}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors w-full"
@@ -88,9 +90,14 @@ export default function Layout() {
             <Shield size={18} className="text-indigo-400" />
             <span className="font-semibold text-slate-100 text-sm">Incident Tracker</span>
           </div>
-          <button onClick={handleSignOut} className="text-slate-400 hover:text-red-400 p-1">
-            <LogOut size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link to="/profile" className="text-slate-400 hover:text-slate-200 p-1">
+              <UserCircle size={18} />
+            </Link>
+            <button onClick={handleSignOut} className="text-slate-400 hover:text-red-400 p-1">
+              <LogOut size={18} />
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0">

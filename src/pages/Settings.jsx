@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { UserPlus, Trash2, Download, Copy, Check } from 'lucide-react'
+import { UserPlus, Trash2, Download, Copy, Check, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
@@ -22,7 +23,7 @@ function RoleBadge({ role }) {
 }
 
 export default function Settings() {
-  const { user, userCode, updatePasscode } = useAuth()
+  const { user, userCode } = useAuth()
   const { role, can } = usePermissions()
   const [appUsers, setAppUsers] = useState([])
   const [inviteRole, setInviteRole] = useState('viewer')
@@ -31,8 +32,6 @@ export default function Settings() {
   const [tokenCopied, setTokenCopied] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(null)
   const [exportLoading, setExportLoading] = useState(false)
-  const [newPasscode, setNewPasscode] = useState('')
-  const [pwMsg, setPwMsg] = useState('')
 
   useEffect(() => {
     if (!can.manageUsers) return
@@ -101,13 +100,6 @@ export default function Settings() {
       a.click(); URL.revokeObjectURL(url)
     }
     setExportLoading(false)
-  }
-
-  const handleUpdatePasscode = async (e) => {
-    e.preventDefault()
-    const { error } = await updatePasscode(newPasscode)
-    if (error) setPwMsg(`Error: ${error.message}`)
-    else { setPwMsg('Passcode updated.'); setNewPasscode('') }
   }
 
   return (
@@ -214,23 +206,18 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Change passcode — everyone */}
+      {/* Profile link */}
       <div className="rounded-xl p-4 border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <SectionTitle>Change Passcode</SectionTitle>
-        <form onSubmit={handleUpdatePasscode} className="flex flex-col gap-2">
-          <input type="password" placeholder="New passcode (min 6 chars)" minLength={6}
-            value={newPasscode} onChange={e => setNewPasscode(e.target.value)}
-            className={inputClass} style={inputStyle} />
-          {pwMsg && <p className={`text-xs ${pwMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{pwMsg}</p>}
-          <button type="submit"
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white w-fit"
-            style={{ background: '#6366f1' }}>
-            Update Passcode
-          </button>
-        </form>
-        <div className="flex items-center gap-2 mt-3">
-          <p className="text-xs text-slate-600">ID: #{userCode ?? '—'}</p>
-          <RoleBadge role={role} />
+        <SectionTitle>My Account</SectionTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-mono">ID: #{userCode ?? '—'}</span>
+            <RoleBadge role={role} />
+          </div>
+          <Link to="/profile"
+            className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+            Manage <ExternalLink size={12} />
+          </Link>
         </div>
       </div>
 

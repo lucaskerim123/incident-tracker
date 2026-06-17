@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import Register from './pages/Register'
+import Profile from './pages/Profile'
 import Dashboard from './pages/Dashboard'
 import Incidents from './pages/Incidents'
 import IncidentDetail from './pages/IncidentDetail'
@@ -27,8 +29,10 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Dashboard />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="incidents" element={<Incidents />} />
         <Route path="incidents/new" element={<AddIncident />} />
         <Route path="incidents/:id" element={<IncidentDetail />} />

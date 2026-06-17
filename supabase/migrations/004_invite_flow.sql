@@ -69,3 +69,26 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
+
+-- Backfill: create public.users rows for any auth users that pre-date this migration
+-- (trigger only fires on NEW signups, so existing accounts need a manual insert)
+do $$
+declare
+  v_first boolean;
+  v_rec   record;
+  v_code  text;
+begin
+  v_first := not exists (select 1 from public.users);
+  for v_rec in
+    select id, email
+    from auth.users
+    where not exists (select 1 from public.users u where u.id = auth.users.id)
+    order by created_at
+  loop
+    v_code := nextval('user_code_seq')::text;
+    insert into public.users (id, email, role, user_code)
+    values (v_rec.id, v_rec.email, case when v_first then 'admin' else 'viewer' end, v_code);
+    v_first := false;
+  end loop;
+end;
+$$;
