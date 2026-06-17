@@ -62,7 +62,8 @@ export default function Layout() {
 
         <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5 overflow-y-auto">
           {navItems.map(item => <NavItem key={item.to} {...item} />)}
-          {can.manageUsers && <NavItem to="/settings" label="Settings" icon={Settings} />}
+          <NavItem to="/settings" label="Settings" icon={Settings} />
+          {can.viewAdmin && <NavItem to="/admin" label="Admin" icon={Shield} />}
         </nav>
 
         <div className="px-2 py-3 border-t" style={{ borderColor: '#2a2d3a' }}>
@@ -108,7 +109,8 @@ export default function Layout() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t z-10 flex"
           style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
           {navItems.map(item => <NavItem key={item.to} {...item} mobile />)}
-          {can.manageUsers && <NavItem to="/settings" label="Settings" icon={Settings} mobile />}
+          <NavItem to="/settings" label="Settings" icon={Settings} mobile />
+          {can.viewAdmin && <NavItem to="/admin" label="Admin" icon={Shield} mobile />}
         </nav>
       </div>
     </div>

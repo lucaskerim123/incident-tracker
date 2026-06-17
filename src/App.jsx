@@ -3,8 +3,6 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { usePermissions } from './hooks/usePermissions'
 import Layout from './components/Layout'
 import Login from './pages/Login'
-import Register from './pages/Register'
-import Profile from './pages/Profile'
 import Dashboard from './pages/Dashboard'
 import Incidents from './pages/Incidents'
 import IncidentDetail from './pages/IncidentDetail'
@@ -14,10 +12,11 @@ import People from './pages/People'
 import CaseStatus from './pages/CaseStatus'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
+import Admin from './pages/Admin'
 
-function RequireAdmin({ children }) {
+function RequireViewAdmin({ children }) {
   const { can } = usePermissions()
-  if (!can.manageUsers) return <Navigate to="/" replace />
+  if (!can.viewAdmin) return <Navigate to="/" replace />
   return children
 }
 
@@ -36,10 +35,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Dashboard />} />
-        <Route path="profile" element={<Profile />} />
         <Route path="incidents" element={<Incidents />} />
         <Route path="incidents/new" element={<AddIncident />} />
         <Route path="incidents/:id" element={<IncidentDetail />} />
@@ -47,7 +44,8 @@ function AppRoutes() {
         <Route path="people" element={<People />} />
         <Route path="cases" element={<CaseStatus />} />
         <Route path="documents" element={<Documents />} />
-        <Route path="settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="admin" element={<RequireViewAdmin><Admin /></RequireViewAdmin>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

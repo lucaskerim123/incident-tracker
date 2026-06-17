@@ -10,9 +10,9 @@ export default function EditIncident() {
   const { can } = usePermissions()
   const navigate = useNavigate()
   const [incident, setIncident] = useState(null)
-  const [fetchError, setFetchError] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
     supabase.from('incidents').select('*').eq('id', id).single()
@@ -24,6 +24,18 @@ export default function EditIncident() {
 
   if (!can.edit) return <Navigate to={`/incidents/${id}`} replace />
 
+  if (fetchError) return (
+    <div className="p-4 max-w-2xl mx-auto">
+      <p className="text-slate-400 text-sm">Incident not found.</p>
+    </div>
+  )
+
+  if (!incident) return (
+    <div className="flex justify-center py-16">
+      <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
   const handleSubmit = async (form) => {
     setLoading(true); setError('')
     const { error } = await supabase.from('incidents')
@@ -33,23 +45,6 @@ export default function EditIncident() {
     if (error) setError(error.message)
     else navigate(`/incidents/${id}`)
   }
-
-  if (fetchError) return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <button onClick={() => navigate(-1)} className="p-1.5 mb-4 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
-        <ArrowLeft size={20} />
-      </button>
-      <div className="rounded-xl p-8 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <p className="text-slate-400 text-sm">Incident not found.</p>
-      </div>
-    </div>
-  )
-
-  if (!incident) return (
-    <div className="flex justify-center py-16">
-      <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
