@@ -9,7 +9,9 @@ const STATUS_STYLES = {
   resolved:   { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
 }
 
-export default function IncidentCard({ incident }) {
+const STATUS_CYCLE = { documented: 'pending', pending: 'resolved', resolved: 'documented' }
+
+export default function IncidentCard({ incident, onStatusChange }) {
   const navigate = useNavigate()
   const s = STATUS_STYLES[incident.status] ?? STATUS_STYLES.documented
   const people = incident.people_involved ?? []
@@ -24,9 +26,19 @@ export default function IncidentCard({ incident }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <CategoryBadge category={incident.category} size="xs" />
-            <span style={{ background: s.bg, color: s.text, padding: '2px 6px', fontSize: 11, borderRadius: 6, fontWeight: 600 }}>
-              {incident.status}
-            </span>
+            {onStatusChange ? (
+              <button
+                onClick={e => { e.stopPropagation(); onStatusChange(incident.id, STATUS_CYCLE[incident.status] ?? 'documented') }}
+                style={{ background: s.bg, color: s.text, padding: '2px 6px', fontSize: 11, borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
+                title="Click to cycle status"
+              >
+                {incident.status}
+              </button>
+            ) : (
+              <span style={{ background: s.bg, color: s.text, padding: '2px 6px', fontSize: 11, borderRadius: 6, fontWeight: 600 }}>
+                {incident.status}
+              </span>
+            )}
             {incident.reference_number && (
               <span className="text-xs text-slate-500 font-mono">{incident.reference_number}</span>
             )}

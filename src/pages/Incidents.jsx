@@ -38,6 +38,11 @@ export default function Incidents() {
       })
   }, [user])
 
+  const handleStatusChange = async (id, newStatus) => {
+    await supabase.from('incidents').update({ status: newStatus }).eq('id', id)
+    setIncidents(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i))
+  }
+
   useEffect(() => {
     let list = incidents
     if (category !== 'all') list = list.filter(i => i.category === category)
@@ -129,7 +134,7 @@ export default function Incidents() {
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-slate-500 mb-1">{filtered.length} incident{filtered.length !== 1 ? 's' : ''}</p>
-          {filtered.map(i => <IncidentCard key={i.id} incident={i} />)}
+          {filtered.map(i => <IncidentCard key={i.id} incident={i} onStatusChange={can.edit ? handleStatusChange : null} />)}
         </div>
       )}
 

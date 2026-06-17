@@ -1,26 +1,25 @@
 import { useAuth } from './useAuth'
 
-// Role hierarchy: viewer < lawyer < editor < admin
 const PERMISSIONS = {
   admin: {
     view: true, add: true, edit: true, delete: true,
     upload: true, managePeople: true, manageCases: true,
-    manageUsers: true, inviteUsers: true, export: true,
+    manageUsers: true, inviteUsers: true, export: true, viewAdmin: true,
   },
   editor: {
     view: true, add: true, edit: true, delete: true,
     upload: true, managePeople: true, manageCases: true,
-    manageUsers: true, inviteUsers: false, export: true,
+    manageUsers: true, inviteUsers: false, export: true, viewAdmin: true,
   },
   lawyer: {
     view: true, add: true, edit: false, delete: false,
     upload: true, managePeople: false, manageCases: false,
-    manageUsers: false, inviteUsers: false, export: false,
+    manageUsers: false, inviteUsers: false, export: false, viewAdmin: false,
   },
   viewer: {
     view: true, add: false, edit: false, delete: false,
     upload: false, managePeople: false, manageCases: false,
-    manageUsers: false, inviteUsers: false, export: false,
+    manageUsers: false, inviteUsers: false, export: false, viewAdmin: false,
   },
 }
 

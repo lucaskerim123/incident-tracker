@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
@@ -68,6 +68,7 @@ export default function People() {
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [newPerson, setNewPerson] = useState({ name: '', role: '', notes: '' })
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -91,6 +92,13 @@ export default function People() {
     setPeople(p => p.filter(x => x.id !== id))
   }
 
+  const visible = search.trim()
+    ? people.filter(p =>
+        p.name?.toLowerCase().includes(search.toLowerCase()) ||
+        p.role?.toLowerCase().includes(search.toLowerCase())
+      )
+    : people
+
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
@@ -102,6 +110,14 @@ export default function People() {
             <Plus size={16} /> Add Person
           </button>
         )}
+      </div>
+
+      <div className="relative mb-3">
+        <Search size={15} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
+        <input type="text" placeholder="Search people…" value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 rounded-lg text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors"
+          style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
       </div>
 
       {adding && (
@@ -129,13 +145,13 @@ export default function People() {
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : people.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="rounded-xl p-10 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-          <p className="text-slate-400 text-sm">No people added yet.</p>
+          <p className="text-slate-400 text-sm">{people.length === 0 ? 'No people added yet.' : 'No people match your search.'}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {people.map(p => (
+          {visible.map(p => (
             <PersonRow key={p.id} person={p} onSave={savePerson} onDelete={deletePerson} canManage={can.managePeople} />
           ))}
         </div>

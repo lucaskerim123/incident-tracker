@@ -20,10 +20,12 @@ export default function Documents() {
   const [uploading, setUploading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [addMode, setAddMode] = useState('upload') // 'upload' | 'gdrive'
-  const [gdriveForm, setGdriveForm] = useState({ title: '', google_doc_id: '', category: 'legal' })
+  const [gdriveForm, setGdriveForm] = useState({ title: '', google_doc_id: '', category: 'legal', related_incident_id: '' })
   const [confirmDel, setConfirmDel] = useState(null)
   const [filter, setFilter] = useState('all')
   const [uploadError, setUploadError] = useState('')
+  const [incidents, setIncidents] = useState([])
+  const [uploadIncidentId, setUploadIncidentId] = useState('')
   const fileRef = useRef()
 
   useEffect(() => {
@@ -31,6 +33,12 @@ export default function Documents() {
     supabase.from('documents').select('*').order('created_at', { ascending: false })
       .then(({ data }) => { setDocs(data ?? []); setLoading(false) })
   }, [user])
+
+  useEffect(() => {
+    if (!showAdd || !user) return
+    supabase.from('incidents').select('id, title, date').order('date', { ascending: false })
+      .then(({ data }) => setIncidents(data ?? []))
+  }, [showAdd, user])
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -40,19 +48,23 @@ export default function Documents() {
     const { error: storageErr } = await supabase.storage.from('documents').upload(path, file)
     if (storageErr) { setUploadError(storageErr.message); setUploading(false); return }
     const { data } = await supabase.from('documents').insert({
-      user_id: user.id, title: file.name, file_path: path, category: 'other', created_at: new Date().toISOString(),
+      user_id: user.id, title: file.name, file_path: path, category: 'other',
+      related_incident_id: uploadIncidentId || null, created_at: new Date().toISOString(),
     }).select().single()
     if (data) setDocs(d => [data, ...d])
     setUploading(false)
+    setUploadIncidentId('')
     e.target.value = ''
   }
 
   const addGdriveDoc = async () => {
     if (!gdriveForm.title.trim() || !gdriveForm.google_doc_id.trim()) return
     const { data } = await supabase.from('documents').insert({
-      user_id: user.id, ...gdriveForm, created_at: new Date().toISOString(),
+      user_id: user.id, ...gdriveForm,
+      related_incident_id: gdriveForm.related_incident_id || null,
+      created_at: new Date().toISOString(),
     }).select().single()
-    if (data) { setDocs(d => [data, ...d]); setShowAdd(false); setGdriveForm({ title: '', google_doc_id: '', category: 'legal' }) }
+    if (data) { setDocs(d => [data, ...d]); setShowAdd(false); setGdriveForm({ title: '', google_doc_id: '', category: 'legal', related_incident_id: '' }) }
   }
 
   const deleteDoc = async (doc) => {
@@ -93,7 +105,7 @@ export default function Documents() {
           </div>
 
           {addMode === 'upload' ? (
-            <div>
+            <div className="flex flex-col gap-2">
               <input type="file" ref={fileRef} onChange={handleFileUpload} className="hidden"
                 accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" />
               <button onClick={() => fileRef.current?.click()}
@@ -103,7 +115,14 @@ export default function Documents() {
                 <span className="text-sm">{uploading ? 'Uploading…' : 'Click to upload a file'}</span>
                 <span className="text-xs text-slate-600">PDF, DOC, DOCX, images</span>
               </button>
-              {uploadError && <p className="text-xs text-red-400 mt-2">{uploadError}</p>}
+              <select value={uploadIncidentId} onChange={e => setUploadIncidentId(e.target.value)}
+                className={inputClass} style={inputStyle}>
+                <option value="">No linked incident</option>
+                {incidents.map(i => (
+                  <option key={i.id} value={i.id}>{format(new Date(i.date), 'd MMM yyyy')} — {i.title}</option>
+                ))}
+              </select>
+              {uploadError && <p className="text-xs text-red-400">{uploadError}</p>}
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -117,6 +136,13 @@ export default function Documents() {
               <select value={gdriveForm.category} onChange={e => setGdriveForm(f => ({ ...f, category: e.target.value }))}
                 className={inputClass} style={inputStyle}>
                 {DOC_CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+              </select>
+              <select value={gdriveForm.related_incident_id} onChange={e => setGdriveForm(f => ({ ...f, related_incident_id: e.target.value }))}
+                className={inputClass} style={inputStyle}>
+                <option value="">No linked incident</option>
+                {incidents.map(i => (
+                  <option key={i.id} value={i.id}>{format(new Date(i.date), 'd MMM yyyy')} — {i.title}</option>
+                ))}
               </select>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-sm text-slate-400">Cancel</button>
