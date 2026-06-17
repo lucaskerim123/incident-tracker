@@ -1,56 +1,67 @@
 import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
-import { UserPlus, Trash2, Shield, Download } from 'lucide-react'
+import { UserPlus, Trash2, Download, Copy, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import { usePermissions } from '../hooks/usePermissions'
+import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 const inputClass = 'w-full rounded-lg px-3 py-2.5 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
 const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
 
-const ROLE_STYLES = {
-  admin:    { bg: 'rgba(99,102,241,0.15)',  text: '#818cf8' },
-  lawyer:   { bg: 'rgba(16,185,129,0.15)', text: '#34d399' },
-  support:  { bg: 'rgba(249,115,22,0.15)', text: '#fb923c' },
-  readonly: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
-}
-
-const ROLE_LABELS = { admin: 'Admin', lawyer: 'Lawyer', support: 'Support', readonly: 'Read Only' }
-
 function SectionTitle({ children }) {
   return <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{children}</h2>
 }
 
+function RoleBadge({ role }) {
+  const s = ROLE_STYLES[role] ?? ROLE_STYLES.viewer
+  return (
+    <span style={{ background: s.bg, color: s.text, padding: '2px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+      {ROLE_LABELS[role] ?? role}
+    </span>
+  )
+}
+
 export default function Settings() {
-  const { user } = useAuth()
-  const { isAdmin } = usePermissions()
+  const { user, userCode, updatePasscode } = useAuth()
+  const { role, can } = usePermissions()
   const [users, setUsers] = useState([])
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState('support')
+  const [inviteRole, setInviteRole] = useState('viewer')
   const [inviting, setInviting] = useState(false)
-  const [inviteMsg, setInviteMsg] = useState('')
+  const [generatedInvite, setGeneratedInvite] = useState(null) // { user_code, token }
+  const [tokenCopied, setTokenCopied] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(null)
   const [exportLoading, setExportLoading] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
+  const [newPasscode, setNewPasscode] = useState('')
   const [pwMsg, setPwMsg] = useState('')
 
   useEffect(() => {
-    if (!isAdmin) return
-    supabase.from('user_roles').select('*').order('created_at')
+    if (!can.manageUsers) return
+    supabase.from('user_roles').select('user_id, role, user_code, created_at').order('created_at')
       .then(({ data }) => setUsers(data ?? []))
-  }, [isAdmin])
+  }, [can.manageUsers])
 
-  const inviteUser = async (e) => {
+  const createInvite = async (e) => {
     e.preventDefault()
-    if (!inviteEmail.trim()) return
-    setInviting(true); setInviteMsg('')
-    const { error } = await supabase.from('invitations').insert({
-      email: inviteEmail, role: inviteRole, invited_by: user.id, accepted: false, token: crypto.randomUUID(),
-    })
+    setInviting(true); setGeneratedInvite(null)
+    const token = crypto.randomUUID()
+    const { data, error } = await supabase.from('invitations').insert({
+      role: inviteRole,
+      invited_by: user.id,
+      token,
+      accepted: false,
+    }).select('user_code').single()
     setInviting(false)
-    if (error) setInviteMsg(`Error: ${error.message}`)
-    else { setInviteMsg(`Invitation recorded for ${inviteEmail}. Share the app URL with them.`); setInviteEmail('') }
+    if (error) {
+      alert(`Error: ${error.message}`)
+    } else {
+      setGeneratedInvite({ user_code: data.user_code, token })
+    }
+  }
+
+  const copyToken = async () => {
+    await navigator.clipboard.writeText(generatedInvite.token)
+    setTokenCopied(true)
+    setTimeout(() => setTokenCopied(false), 2000)
   }
 
   const revokeUser = async (userId) => {
@@ -59,9 +70,9 @@ export default function Settings() {
     setConfirmRevoke(null)
   }
 
-  const changeRole = async (userId, role) => {
-    await supabase.from('user_roles').update({ role }).eq('user_id', userId)
-    setUsers(u => u.map(x => x.user_id === userId ? { ...x, role } : x))
+  const changeRole = async (userId, newRole) => {
+    await supabase.from('user_roles').update({ role: newRole }).eq('user_id', userId)
+    setUsers(u => u.map(x => x.user_id === userId ? { ...x, role: newRole } : x))
   }
 
   const exportIncidents = async () => {
@@ -90,50 +101,38 @@ export default function Settings() {
     setExportLoading(false)
   }
 
-  const updatePassword = async (e) => {
+  const handleUpdatePasscode = async (e) => {
     e.preventDefault()
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    const { error } = await updatePasscode(newPasscode)
     if (error) setPwMsg(`Error: ${error.message}`)
-    else { setPwMsg('Password updated.'); setNewPassword('') }
+    else { setPwMsg('Passcode updated.'); setNewPasscode('') }
   }
-
-  if (!isAdmin) return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-slate-100 mb-4">Settings</h1>
-      <div className="rounded-xl p-6 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <Shield size={32} className="text-slate-600 mx-auto mb-2" />
-        <p className="text-slate-400 text-sm">Settings are restricted to admins only.</p>
-      </div>
-    </div>
-  )
 
   return (
     <div className="p-4 max-w-2xl mx-auto pb-8">
       <h1 className="text-xl font-bold text-slate-100 mb-6">Settings</h1>
 
-      {/* User management */}
-      <div className="rounded-xl p-4 border mb-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <SectionTitle>User Management</SectionTitle>
+      {/* User management — editor+ */}
+      {can.manageUsers && (
+        <div className="rounded-xl p-4 border mb-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <SectionTitle>User Management</SectionTitle>
 
-        {/* Current users */}
-        {users.length > 0 && (
-          <div className="flex flex-col gap-2 mb-4">
-            {users.map(u => {
-              const s = ROLE_STYLES[u.role] ?? ROLE_STYLES.readonly
-              return (
+          {users.length > 0 && (
+            <div className="flex flex-col gap-2 mb-4">
+              {users.map(u => (
                 <div key={u.user_id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg" style={{ background: '#0f1117' }}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <span style={{ ...s, padding: '2px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      {ROLE_LABELS[u.role]}
-                    </span>
-                    <span className="text-xs text-slate-400 truncate">{u.email}</span>
+                    <RoleBadge role={u.role} />
+                    <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <select value={u.role} onChange={e => changeRole(u.user_id, e.target.value)}
-                      className="text-xs rounded px-2 py-1 border text-slate-300 outline-none focus:border-indigo-500"
-                      style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-                      {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
+                    {can.inviteUsers && (
+                      <select value={u.role} onChange={e => changeRole(u.user_id, e.target.value)}
+                        className="text-xs rounded px-2 py-1 border text-slate-300 outline-none focus:border-indigo-500"
+                        style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+                        {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </select>
+                    )}
                     {u.user_id !== user.id && (
                       <button onClick={() => setConfirmRevoke(u)}
                         className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors">
@@ -142,70 +141,103 @@ export default function Settings() {
                     )}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* Invite form */}
-        <form onSubmit={inviteUser} className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <input type="email" placeholder="Email address to invite"
-              value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-              className={`${inputClass} flex-1`} style={inputStyle} />
-            <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
-              className={inputClass} style={{ ...inputStyle, width: 110 }}>
-              <option value="lawyer">Lawyer</option>
-              <option value="support">Support</option>
-              <option value="readonly">Read Only</option>
-            </select>
+          {/* Invite form — admin only */}
+          {can.inviteUsers && (
+            <>
+              <form onSubmit={createInvite} className="flex flex-col gap-2">
+                <p className="text-xs text-slate-500 mb-1">Select a role — the system will auto-assign an Access ID. Share both the ID and the invite code with the new user.</p>
+                <div className="flex gap-2">
+                  <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+                    className={inputClass} style={inputStyle}>
+                    <option value="viewer">Viewer</option>
+                    <option value="lawyer">Lawyer</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button type="submit" disabled={inviting}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white shrink-0 disabled:opacity-50"
+                    style={{ background: '#6366f1' }}>
+                    <UserPlus size={15} />
+                    {inviting ? 'Creating…' : 'Generate'}
+                  </button>
+                </div>
+              </form>
+
+              {generatedInvite && (
+                <div className="mt-3 p-3 rounded-lg border" style={{ background: '#0f1117', borderColor: '#34d399' }}>
+                  <p className="text-xs text-emerald-400 font-semibold mb-2">Invite created — share these with the new user (shown once):</p>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 w-20 shrink-0">Access ID</span>
+                      <code className="text-xs text-slate-100 font-mono font-bold">#{generatedInvite.user_code}</code>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 w-20 shrink-0">Invite code</span>
+                      <code className="text-xs text-slate-300 flex-1 break-all font-mono">{generatedInvite.token}</code>
+                      <button type="button" onClick={copyToken}
+                        className="shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-200 transition-colors">
+                        {tokenCopied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Export — editor+ */}
+      {can.export && (
+        <div className="rounded-xl p-4 border mb-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <SectionTitle>Export Data</SectionTitle>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={exportIncidents} disabled={exportLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-200 border hover:border-indigo-500/50 transition-colors disabled:opacity-50"
+              style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
+              <Download size={15} className="text-indigo-400" /> Export JSON
+            </button>
+            <button onClick={exportCsv} disabled={exportLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-200 border hover:border-indigo-500/50 transition-colors disabled:opacity-50"
+              style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
+              <Download size={15} className="text-indigo-400" /> Export CSV
+            </button>
           </div>
-          {inviteMsg && <p className={`text-xs ${inviteMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{inviteMsg}</p>}
-          <button type="submit" disabled={inviting}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white w-fit disabled:opacity-50"
+        </div>
+      )}
+
+      {/* Change passcode — everyone */}
+      <div className="rounded-xl p-4 border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+        <SectionTitle>Change Passcode</SectionTitle>
+        <form onSubmit={handleUpdatePasscode} className="flex flex-col gap-2">
+          <input type="password" placeholder="New passcode (min 6 chars)" minLength={6}
+            value={newPasscode} onChange={e => setNewPasscode(e.target.value)}
+            className={inputClass} style={inputStyle} />
+          {pwMsg && <p className={`text-xs ${pwMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{pwMsg}</p>}
+          <button type="submit"
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white w-fit"
             style={{ background: '#6366f1' }}>
-            <UserPlus size={15} />
-            {inviting ? 'Recording…' : 'Invite User'}
+            Update Passcode
           </button>
         </form>
-      </div>
-
-      {/* Export */}
-      <div className="rounded-xl p-4 border mb-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <SectionTitle>Export Data</SectionTitle>
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={exportIncidents} disabled={exportLoading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-200 border hover:border-indigo-500/50 transition-colors"
-            style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
-            <Download size={15} className="text-indigo-400" /> Export JSON
-          </button>
-          <button onClick={exportCsv} disabled={exportLoading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-200 border hover:border-indigo-500/50 transition-colors"
-            style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
-            <Download size={15} className="text-indigo-400" /> Export CSV
-          </button>
+        <div className="flex items-center gap-2 mt-3">
+          <p className="text-xs text-slate-600">ID: {userCode ?? '—'}</p>
+          <RoleBadge role={role} />
         </div>
       </div>
 
-      {/* Change password */}
-      <div className="rounded-xl p-4 border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <SectionTitle>Change Password</SectionTitle>
-        <form onSubmit={updatePassword} className="flex flex-col gap-2">
-          <input type="password" placeholder="New password (min 8 chars)" minLength={8}
-            value={newPassword} onChange={e => setNewPassword(e.target.value)}
-            className={inputClass} style={inputStyle} />
-          {pwMsg && <p className={`text-xs ${pwMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{pwMsg}</p>}
-          <button type="submit" className="px-4 py-2 rounded-lg text-sm font-semibold text-white w-fit"
-            style={{ background: '#6366f1' }}>
-            Update Password
-          </button>
-        </form>
-        <p className="text-xs text-slate-600 mt-3">Signed in as {user?.email}</p>
-      </div>
-
-      <ConfirmDialog open={!!confirmRevoke} title="Revoke Access"
-        message={`Remove access for ${confirmRevoke?.email}? They will no longer be able to sign in.`}
-        confirmLabel="Revoke" onConfirm={() => revokeUser(confirmRevoke?.user_id)} onCancel={() => setConfirmRevoke(null)} />
+      <ConfirmDialog
+        open={!!confirmRevoke}
+        title="Revoke Access"
+        message={`Remove access for user #${confirmRevoke?.user_code ?? '—'}? They will no longer be able to sign in.`}
+        confirmLabel="Revoke"
+        onConfirm={() => revokeUser(confirmRevoke?.user_id)}
+        onCancel={() => setConfirmRevoke(null)}
+      />
     </div>
   )
 }

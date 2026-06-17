@@ -3,9 +3,13 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
+const ID_DOMAIN = 'it.local'
+const idToEmail = (id) => `${id}@${ID_DOMAIN}`
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [userRole, setUserRole] = useState(null)
+  const [userCode, setUserCode] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -18,7 +22,7 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session) fetchRole(session.user.id)
-      else { setUserRole(null); setLoading(false) }
+      else { setUserRole(null); setUserCode(null); setLoading(false) }
     })
 
     return () => subscription.unsubscribe()
@@ -27,23 +31,43 @@ export function AuthProvider({ children }) {
   async function fetchRole(userId) {
     const { data } = await supabase
       .from('user_roles')
-      .select('role')
+      .select('role, user_code')
       .eq('user_id', userId)
       .single()
-    setUserRole(data?.role ?? 'admin')
+    setUserRole(data?.role ?? 'viewer')
+    setUserCode(data?.user_code ?? null)
     setLoading(false)
   }
 
-  const signIn = (email) =>
-    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } })
+  const signInWithId = (id, passcode) =>
+    supabase.auth.signInWithPassword({ email: idToEmail(id), password: passcode })
 
-  const signInWithPassword = (email, password) =>
-    supabase.auth.signInWithPassword({ email, password })
+  const registerWithInvite = async (id, token, passcode) => {
+    // Validate the invitation before creating the account
+    const { data: valid, error: valErr } = await supabase.rpc('validate_invitation', {
+      p_user_code: id,
+      p_token: token,
+    })
+    if (valErr || !valid) return { error: 'Invalid ID or invite code.' }
+
+    const { error } = await supabase.auth.signUp({
+      email: idToEmail(id),
+      password: passcode,
+    })
+    if (error) return { error: error.message }
+    return { error: null }
+  }
 
   const signOut = () => supabase.auth.signOut()
 
+  const updatePasscode = (newPasscode) =>
+    supabase.auth.updateUser({ password: newPasscode })
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user, userRole, loading, signIn, signInWithPassword, signOut }}>
+    <AuthContext.Provider value={{
+      session, user: session?.user, userRole, userCode, loading,
+      signInWithId, registerWithInvite, signOut, updatePasscode,
+    }}>
       {children}
     </AuthContext.Provider>
   )
