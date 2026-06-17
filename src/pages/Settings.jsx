@@ -32,12 +32,14 @@ export default function Settings() {
   const [nameSaving, setNameSaving] = useState(false)
   const [joinedAt, setJoinedAt] = useState(null)
 
-  // Passcode
-  const [newPasscode, setNewPasscode] = useState('')
-  const [confirmPasscode, setConfirmPasscode] = useState('')
+  // PIN
+  const [newPin, setNewPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMsg, setPwMsg] = useState({ text: '', ok: false })
+
+  const onlyDigits = (v) => v.replace(/\D/g, '').slice(0, 6)
 
   // Export
   const [exportLoading, setExportLoading] = useState(false)
@@ -60,16 +62,19 @@ export default function Settings() {
     setEditingName(false)
   }
 
-  const handleUpdatePasscode = async (e) => {
+  const handleUpdatePin = async (e) => {
     e.preventDefault()
-    if (newPasscode !== confirmPasscode) {
-      setPwMsg({ text: 'Passcodes do not match.', ok: false }); return
+    if (newPin.length < 4) {
+      setPwMsg({ text: 'PIN must be 4–6 digits.', ok: false }); return
+    }
+    if (newPin !== confirmPin) {
+      setPwMsg({ text: 'PINs do not match.', ok: false }); return
     }
     setPwLoading(true); setPwMsg({ text: '', ok: false })
-    const { error } = await updatePasscode(newPasscode)
+    const { error } = await updatePasscode(newPin)
     setPwLoading(false)
     if (error) setPwMsg({ text: `Error: ${error.message}`, ok: false })
-    else { setPwMsg({ text: 'Passcode updated.', ok: true }); setNewPasscode(''); setConfirmPasscode('') }
+    else { setPwMsg({ text: 'PIN updated.', ok: true }); setNewPin(''); setConfirmPin('') }
   }
 
   const exportIncidents = async () => {
@@ -163,32 +168,42 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Change passcode */}
+      {/* Change PIN */}
       <div className="rounded-xl p-4 border mb-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <SectionTitle>Change Passcode</SectionTitle>
-        <form onSubmit={handleUpdatePasscode} className="flex flex-col gap-3">
+        <SectionTitle>Change PIN</SectionTitle>
+        <form onSubmit={handleUpdatePin} className="flex flex-col gap-3">
           <div className="relative">
             <Lock size={15} className="absolute left-3 top-3 text-slate-500 pointer-events-none" />
-            <input type={showPw ? 'text' : 'password'} placeholder="New passcode (min 6 chars)"
-              minLength={6} required value={newPasscode}
-              onChange={e => setNewPasscode(e.target.value)}
-              className={`${inputClass} pl-9 pr-10`} style={inputStyle} />
+            <input
+              type={showPw ? 'text' : 'password'}
+              inputMode="numeric"
+              placeholder="New PIN (4–6 digits)"
+              required
+              value={newPin}
+              onChange={e => setNewPin(onlyDigits(e.target.value))}
+              className={`${inputClass} pl-9 pr-10`} style={inputStyle}
+            />
             <button type="button" onClick={() => setShowPw(v => !v)}
               className="absolute right-3 top-3 text-slate-500 hover:text-slate-300">
               {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          <input type={showPw ? 'text' : 'password'} placeholder="Confirm new passcode"
-            minLength={6} required value={confirmPasscode}
-            onChange={e => setConfirmPasscode(e.target.value)}
-            className={inputClass} style={inputStyle} />
+          <input
+            type={showPw ? 'text' : 'password'}
+            inputMode="numeric"
+            placeholder="Confirm new PIN"
+            required
+            value={confirmPin}
+            onChange={e => setConfirmPin(onlyDigits(e.target.value))}
+            className={inputClass} style={inputStyle}
+          />
           {pwMsg.text && (
             <p className={`text-xs ${pwMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg.text}</p>
           )}
-          <button type="submit" disabled={pwLoading}
+          <button type="submit" disabled={pwLoading || newPin.length < 4}
             className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white w-fit disabled:opacity-50"
             style={{ background: '#6366f1' }}>
-            {pwLoading ? 'Updating…' : 'Update Passcode'}
+            {pwLoading ? 'Updating…' : 'Update PIN'}
           </button>
         </form>
       </div>
