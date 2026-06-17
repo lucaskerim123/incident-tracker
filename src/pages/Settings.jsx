@@ -25,10 +25,9 @@ export default function Settings() {
   const { user, userCode, updatePasscode } = useAuth()
   const { role, can } = usePermissions()
   const [users, setUsers] = useState([])
-  const [newUserCode, setNewUserCode] = useState('')
   const [inviteRole, setInviteRole] = useState('viewer')
   const [inviting, setInviting] = useState(false)
-  const [generatedToken, setGeneratedToken] = useState(null)
+  const [generatedInvite, setGeneratedInvite] = useState(null) // { user_code, token }
   const [tokenCopied, setTokenCopied] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(null)
   const [exportLoading, setExportLoading] = useState(false)
@@ -43,27 +42,24 @@ export default function Settings() {
 
   const createInvite = async (e) => {
     e.preventDefault()
-    if (!newUserCode.trim()) return
-    setInviting(true); setGeneratedToken(null)
+    setInviting(true); setGeneratedInvite(null)
     const token = crypto.randomUUID()
-    const { error } = await supabase.from('invitations').insert({
-      user_code: newUserCode.trim(),
+    const { data, error } = await supabase.from('invitations').insert({
       role: inviteRole,
       invited_by: user.id,
       token,
       accepted: false,
-    })
+    }).select('user_code').single()
     setInviting(false)
     if (error) {
       alert(`Error: ${error.message}`)
     } else {
-      setGeneratedToken(token)
-      setNewUserCode('')
+      setGeneratedInvite({ user_code: data.user_code, token })
     }
   }
 
   const copyToken = async () => {
-    await navigator.clipboard.writeText(generatedToken)
+    await navigator.clipboard.writeText(generatedInvite.token)
     setTokenCopied(true)
     setTimeout(() => setTokenCopied(false), 2000)
   }
@@ -153,36 +149,40 @@ export default function Settings() {
           {can.inviteUsers && (
             <>
               <form onSubmit={createInvite} className="flex flex-col gap-2">
-                <p className="text-xs text-slate-500 mb-1">Assign an Access ID and role, then share the generated invite code with the user.</p>
+                <p className="text-xs text-slate-500 mb-1">Select a role — the system will auto-assign an Access ID. Share both the ID and the invite code with the new user.</p>
                 <div className="flex gap-2">
-                  <input type="text" inputMode="numeric" placeholder="Access ID (e.g. 1002)"
-                    value={newUserCode} onChange={e => setNewUserCode(e.target.value.replace(/\D/g, ''))}
-                    className={`${inputClass} flex-1`} style={inputStyle} />
                   <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
-                    className={inputClass} style={{ ...inputStyle, width: 110 }}>
+                    className={inputClass} style={inputStyle}>
                     <option value="viewer">Viewer</option>
                     <option value="lawyer">Lawyer</option>
                     <option value="editor">Editor</option>
                     <option value="admin">Admin</option>
                   </select>
+                  <button type="submit" disabled={inviting}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white shrink-0 disabled:opacity-50"
+                    style={{ background: '#6366f1' }}>
+                    <UserPlus size={15} />
+                    {inviting ? 'Creating…' : 'Generate'}
+                  </button>
                 </div>
-                <button type="submit" disabled={inviting}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white w-fit disabled:opacity-50"
-                  style={{ background: '#6366f1' }}>
-                  <UserPlus size={15} />
-                  {inviting ? 'Creating…' : 'Generate Invite'}
-                </button>
               </form>
 
-              {generatedToken && (
-                <div className="mt-3 p-3 rounded-lg border" style={{ background: '#0f1117', borderColor: '#34d399', borderWidth: 1 }}>
-                  <p className="text-xs text-emerald-400 font-semibold mb-2">Invite created — share this code with the user (shown once):</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs text-slate-300 flex-1 break-all font-mono">{generatedToken}</code>
-                    <button type="button" onClick={copyToken}
-                      className="shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-200 transition-colors">
-                      {tokenCopied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                    </button>
+              {generatedInvite && (
+                <div className="mt-3 p-3 rounded-lg border" style={{ background: '#0f1117', borderColor: '#34d399' }}>
+                  <p className="text-xs text-emerald-400 font-semibold mb-2">Invite created — share these with the new user (shown once):</p>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 w-20 shrink-0">Access ID</span>
+                      <code className="text-xs text-slate-100 font-mono font-bold">#{generatedInvite.user_code}</code>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 w-20 shrink-0">Invite code</span>
+                      <code className="text-xs text-slate-300 flex-1 break-all font-mono">{generatedInvite.token}</code>
+                      <button type="button" onClick={copyToken}
+                        className="shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-200 transition-colors">
+                        {tokenCopied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

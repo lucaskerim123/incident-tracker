@@ -1,13 +1,17 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { usePermissions } from '../hooks/usePermissions'
 import IncidentForm from '../components/IncidentForm'
 
 export default function AddIncident() {
   const { user } = useAuth()
+  const { can } = usePermissions()
   const navigate = useNavigate()
+
+  if (!can.add) return <Navigate to="/incidents" replace />
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 

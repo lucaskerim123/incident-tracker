@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Navigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { usePermissions } from '../hooks/usePermissions'
 import IncidentForm from '../components/IncidentForm'
 
 export default function EditIncident() {
   const { id } = useParams()
+  const { can } = usePermissions()
   const navigate = useNavigate()
+
+  if (!can.edit) return <Navigate to={`/incidents/${id}`} replace />
   const [incident, setIncident] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
