@@ -65,7 +65,7 @@ export default function Admin() {
 
   // Inline edit
   const [expandedUser, setExpandedUser] = useState(null)
-  const [editForm, setEditForm] = useState({ displayName: '', role: '' })
+  const [editForm, setEditForm] = useState({ displayName: '', email: '', role: '', status: '' })
   const [editLoading, setEditLoading] = useState(false)
   const [editMsg, setEditMsg] = useState({})
 
@@ -188,7 +188,7 @@ export default function Admin() {
 
   const openEdit = (u) => {
     setExpandedUser(u.id)
-    setEditForm({ displayName: u.display_name ?? '', role: u.role, status: u.status ?? 'active' })
+    setEditForm({ displayName: u.display_name ?? '', email: u.email ?? '', role: u.role, status: u.status ?? 'active' })
     setEditMsg({})
   }
 
@@ -198,17 +198,32 @@ export default function Admin() {
   }
 
   const saveUserEdit = async (userId) => {
+    const currentUser = appUsers.find(u => u.id === userId)
+    const newEmail = editForm.email.trim().toLowerCase()
     setEditLoading(true)
     const { error } = await supabase.from('users')
       .update({ display_name: editForm.displayName.trim() || null, role: editForm.role, status: editForm.status })
       .eq('id', userId)
-    setEditLoading(false)
     if (error) {
+      setEditLoading(false)
       setEditMsg(m => ({ ...m, [userId]: { text: 'Save failed.', ok: false } }))
       return
     }
-    setAppUsers(u => u.map(x => x.id === userId ? { ...x, display_name: editForm.displayName.trim() || null, role: editForm.role, status: editForm.status } : x))
+    if (newEmail && newEmail !== (currentUser?.email ?? '')) {
+      const { error: emailErr } = await supabase.rpc('admin_update_user_email', { target_id: userId, new_email: newEmail })
+      if (emailErr) {
+        setEditLoading(false)
+        setEditMsg(m => ({ ...m, [userId]: { text: `Email update failed: ${emailErr.message}`, ok: false } }))
+        return
+      }
+    }
+    setEditLoading(false)
+    setAppUsers(u => u.map(x => x.id === userId
+      ? { ...x, display_name: editForm.displayName.trim() || null, role: editForm.role, status: editForm.status, email: newEmail || x.email }
+      : x))
     setExpandedUser(null)
+    setEditMsg(m => ({ ...m, [userId]: { text: 'Saved.', ok: true } }))
+    setTimeout(() => setEditMsg(m => ({ ...m, [userId]: { text: '', ok: false } })), 3000)
   }
 
   const resetPassword = async (userId) => {
@@ -595,12 +610,21 @@ export default function Admin() {
                 {expandedUser === u.id && (
                   <div className="px-3 pb-3 border-t flex flex-col gap-3" style={{ borderColor: '#2a2d3a' }}>
                     <div className="pt-3 grid grid-cols-2 gap-3">
-                      <div className="col-span-2">
+                      <div>
                         <label className="text-xs text-slate-500 mb-1 block">Display name</label>
                         <input
                           value={editForm.displayName ?? ''}
                           onChange={e => setEditForm(f => ({ ...f, displayName: e.target.value }))}
                           placeholder="No name set"
+                          className={inputClass} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500 mb-1 block">Email</label>
+                        <input
+                          type="email"
+                          value={editForm.email ?? ''}
+                          onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="email@example.com"
                           className={inputClass} style={inputStyle} />
                       </div>
                       <div>
