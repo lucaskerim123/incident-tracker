@@ -65,7 +65,7 @@ export default function Admin() {
 
   // Inline edit
   const [expandedUser, setExpandedUser] = useState(null)
-  const [editForm, setEditForm] = useState({ displayName: '', email: '', role: '', status: '' })
+  const [editForm, setEditForm] = useState({ displayName: '', email: '', role: '' })
   const [editLoading, setEditLoading] = useState(false)
   const [editMsg, setEditMsg] = useState({})
 
@@ -80,6 +80,10 @@ export default function Admin() {
 
   // Confirm revoke
   const [confirmRevoke, setConfirmRevoke] = useState(null)
+
+  // Collapsible sections
+  const [openSections, setOpenSections] = useState({ pending: true, users: true, suspensions: false, security: false })
+  const toggleSection = (key) => setOpenSections(s => ({ ...s, [key]: !s[key] }))
 
   // Suspensions & Bans section
   const [sbTab, setSbTab] = useState('suspend')
@@ -445,21 +449,25 @@ export default function Admin() {
 
       {/* Pending Actions */}
       {(pendingCount > 0 || canManage) && (
-        <div className="rounded-xl p-4 border mb-4"
+        <div className="rounded-xl border mb-4"
           style={{ background: '#1a1d27', borderColor: pendingCount > 0 ? 'rgba(239,68,68,0.25)' : '#2a2d3a' }}>
-          <div className="flex items-center gap-2 mb-3">
-            {pendingCount > 0 && <AlertTriangle size={13} className="text-red-400" />}
-            <SectionTitle>
-              <span className={pendingCount > 0 ? 'text-red-400' : ''}>
+          <button onClick={() => toggleSection('pending')}
+            className="w-full flex items-center justify-between px-4 py-3 text-left">
+            <div className="flex items-center gap-2">
+              {pendingCount > 0 && <AlertTriangle size={13} className="text-red-400" />}
+              <span className={`text-xs font-semibold uppercase tracking-wider ${pendingCount > 0 ? 'text-red-400' : 'text-slate-500'}`}>
                 Pending Actions · {pendingCount}
               </span>
-            </SectionTitle>
-          </div>
+            </div>
+            <ChevronDown size={14} className={`text-slate-600 transition-transform ${openSections.pending ? 'rotate-180' : ''}`} />
+          </button>
 
+          {openSections.pending && (
+          <div className="px-4 pb-4 border-t" style={{ borderColor: '#2a2d3a' }}>
           {pendingCount === 0 ? (
-            <p className="text-xs text-slate-600">No pending actions.</p>
+            <p className="text-xs text-slate-600 pt-3">No pending actions.</p>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 pt-3">
               {/* Registration requests */}
               {pendingUsers.map(u => (
                 <div key={`reg-${u.id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-lg"
@@ -587,6 +595,8 @@ export default function Admin() {
               ))}
             </div>
           )}
+          </div>
+          )}
         </div>
       )}
 
@@ -668,11 +678,17 @@ export default function Admin() {
       )}
 
       {/* Active Users */}
-      <div className="rounded-xl p-4 border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <div className="flex items-center justify-between mb-3">
-          <SectionTitle>Active Users · {appUsers.length}</SectionTitle>
-        </div>
+      <div className="rounded-xl border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+        <button onClick={() => toggleSection('users')}
+          className="w-full flex items-center justify-between px-4 py-3 text-left">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Users · {appUsers.length}
+          </span>
+          <ChevronDown size={14} className={`text-slate-600 transition-transform ${openSections.users ? 'rotate-180' : ''}`} />
+        </button>
 
+        {openSections.users && (
+        <div className="px-4 pb-4 border-t" style={{ borderColor: '#2a2d3a' }}>
         {/* Search + role filter */}
         {appUsers.length > 0 && (
           <div className="flex flex-col gap-2 mb-3">
@@ -860,18 +876,25 @@ export default function Admin() {
             ))}
           </div>
         )}
+        </div>
+        )}
       </div>
 
       {/* Suspensions & Bans */}
       {canManage && (
         <div className="rounded-xl border mt-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-          <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b" style={{ borderColor: '#2a2d3a' }}>
-            <Ban size={13} className="text-amber-400" />
-            <SectionTitle>Suspensions &amp; Bans</SectionTitle>
-          </div>
+          <button onClick={() => toggleSection('suspensions')}
+            className="w-full flex items-center justify-between px-4 py-3 text-left">
+            <div className="flex items-center gap-2">
+              <Ban size={13} className="text-amber-400" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Suspensions &amp; Bans</span>
+            </div>
+            <ChevronDown size={14} className={`text-slate-600 transition-transform ${openSections.suspensions ? 'rotate-180' : ''}`} />
+          </button>
 
+          {openSections.suspensions && (<>
           {/* Tabs — Ban tab only for admins */}
-          <div className="flex border-b px-4 gap-1" style={{ borderColor: '#2a2d3a' }}>
+          <div className="flex border-t border-b px-4 gap-1" style={{ borderColor: '#2a2d3a' }}>
             {[
               ['suspend', 'Suspend a User'],
               ...(isAdmin ? [['ban', 'Ban a User']] : []),
@@ -1105,16 +1128,24 @@ export default function Admin() {
               </div>
             )}
           </div>
+          </>)}
         </div>
       )}
 
       {/* Security / Ban List */}
       {canManage && (
-        <div className="rounded-xl p-4 border mt-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Shield size={13} className="text-red-400" />
-            <SectionTitle>Security · Ban List</SectionTitle>
-          </div>
+        <div className="rounded-xl border mt-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <button onClick={() => toggleSection('security')}
+            className="w-full flex items-center justify-between px-4 py-3 text-left">
+            <div className="flex items-center gap-2">
+              <Shield size={13} className="text-red-400" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Security · Ban List</span>
+            </div>
+            <ChevronDown size={14} className={`text-slate-600 transition-transform ${openSections.security ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.security && (
+          <div className="px-4 pb-4 border-t pt-4" style={{ borderColor: '#2a2d3a' }}>
 
           {/* Add ban form */}
           <form onSubmit={addBan} className="flex flex-wrap gap-2 mb-3 items-end">
@@ -1186,6 +1217,8 @@ export default function Admin() {
               ))}
             </div>
           )}
+        </div>
+      )}
         </div>
       )}
 
