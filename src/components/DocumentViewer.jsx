@@ -26,7 +26,7 @@ export default function DocumentViewer({ doc }) {
         <p className="text-sm font-medium text-slate-100 truncate">{doc.title}</p>
         <p className="text-xs text-slate-500 mt-0.5">
           {isGoogleDoc ? 'Google Drive' : isPdf ? 'PDF' : 'Document'}
-          {doc.category && ` · ${doc.category}`}
+          {doc.category && ` · ${doc.category === 'avo' ? 'AVO' : doc.category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`}
         </p>
       </div>
       {isGoogleDoc

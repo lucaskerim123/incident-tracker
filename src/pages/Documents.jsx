@@ -11,6 +11,7 @@ const inputClass = 'w-full rounded-lg px-3 py-2 text-sm text-slate-100 border ou
 const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
 
 const DOC_CATEGORIES = ['legal', 'court', 'avo', 'mental_health', 'police', 'personal', 'other']
+const fmtCat = (s) => s === 'avo' ? 'AVO' : s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
 export default function Documents() {
   const { user } = useAuth()
@@ -135,7 +136,7 @@ export default function Documents() {
               <p className="text-xs text-slate-500">Paste the long ID from the Google Docs URL</p>
               <select value={gdriveForm.category} onChange={e => setGdriveForm(f => ({ ...f, category: e.target.value }))}
                 className={inputClass} style={inputStyle}>
-                {DOC_CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                {DOC_CATEGORIES.map(c => <option key={c} value={c}>{fmtCat(c)}</option>)}
               </select>
               <select value={gdriveForm.related_incident_id} onChange={e => setGdriveForm(f => ({ ...f, related_incident_id: e.target.value }))}
                 className={inputClass} style={inputStyle}>
@@ -161,7 +162,7 @@ export default function Documents() {
           <button key={f} onClick={() => setFilter(f)}
             className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${filter === f ? 'text-white' : 'text-slate-400'}`}
             style={filter === f ? { background: '#6366f1' } : { background: '#1a1d27', border: '1px solid #2a2d3a' }}>
-            {f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === 'all' ? 'All' : fmtCat(f)}
           </button>
         ))}
       </div>
