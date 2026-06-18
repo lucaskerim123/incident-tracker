@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, AlertCircle } from 'lucide-react'
+import { Plus, TrendingUp, AlertCircle, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -14,7 +14,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [cases, setCases] = useState([])
   const [recent, setRecent] = useState([])
-  const [stats, setStats] = useState({ total: 0, pending: 0, thisMonth: 0, resolved: 0 })
+  const [stats, setStats] = useState({ total: 0, pending: 0, thisMonth: 0, resolved: 0, critical: 0, high: 0, medium: 0, low: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -23,7 +23,7 @@ export default function Dashboard() {
     Promise.all([
       supabase.from('cases').select('*').order('court_date'),
       supabase.from('incidents').select('*').order('date', { ascending: false }).limit(5),
-      supabase.from('incidents').select('id, status, date'),
+      supabase.from('incidents').select('id, status, date, severity'),
     ]).then(([casesRes, recentRes, allRes]) => {
       setCases(casesRes.data ?? [])
       setRecent(recentRes.data ?? [])
@@ -37,6 +37,10 @@ export default function Dashboard() {
           const d = new Date(i.date)
           return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
         }).length,
+        critical: all.filter(i => i.severity === 'critical').length,
+        high: all.filter(i => i.severity === 'high').length,
+        medium: all.filter(i => i.severity === 'medium').length,
+        low: all.filter(i => i.severity === 'low').length,
       })
       setLoading(false)
     }).catch(() => { setError(true); setLoading(false) })
@@ -76,6 +80,18 @@ export default function Dashboard() {
         <>
           <CaseBanner cases={cases} />
 
+          {/* Critical incident alert */}
+          {stats.critical > 0 && (
+            <div className="rounded-xl p-3 border mb-4 flex items-center gap-3"
+              style={{ background: 'rgba(239,68,68,0.07)', borderColor: 'rgba(239,68,68,0.3)' }}>
+              <AlertTriangle size={16} className="text-red-400 shrink-0" />
+              <p className="text-sm text-red-300">
+                <span className="font-bold">{stats.critical} critical</span> incident{stats.critical !== 1 ? 's' : ''} on record
+                {stats.high > 0 && <span className="text-red-400/70"> · {stats.high} high severity</span>}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {[
               { label: 'All Time',   value: stats.total },
@@ -91,6 +107,24 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+
+          {/* Severity breakdown */}
+          {stats.total > 0 && (
+            <div className="flex gap-2 flex-wrap mb-4">
+              {[
+                { label: 'Low',      key: 'low',      color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+                { label: 'Medium',   key: 'medium',   color: '#eab308', bg: 'rgba(234,179,8,0.12)' },
+                { label: 'High',     key: 'high',     color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
+                { label: 'Critical', key: 'critical', color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
+              ].filter(({ key }) => stats[key] > 0).map(({ label, key, color, bg }) => (
+                <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                  style={{ background: bg, color }}>
+                  <span className="font-bold">{stats[key]}</span>
+                  <span style={{ opacity: 0.8 }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">

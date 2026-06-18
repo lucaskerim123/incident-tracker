@@ -39,6 +39,7 @@ export default function IncidentDetail() {
   const [incident, setIncident] = useState(null)
   const [docs, setDocs] = useState([])
   const [comments, setComments] = useState([])
+  const [userNames, setUserNames] = useState({})
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
   const [linkedCase, setLinkedCase] = useState(null)
@@ -56,7 +57,18 @@ export default function IncidentDetail() {
       if (incRes.error || !incRes.data) { setNotFound(true); return }
       setIncident(incRes.data)
       setDocs(docsRes.data ?? [])
-      setComments(commentsRes.data ?? [])
+      const loadedComments = commentsRes.data ?? []
+      setComments(loadedComments)
+      // Fetch display names for comment authors
+      const ids = [...new Set(loadedComments.map(c => c.user_id).filter(Boolean))]
+      if (ids.length > 0) {
+        supabase.from('users').select('id, display_name').in('id', ids)
+          .then(({ data }) => {
+            const map = {}
+            ;(data ?? []).forEach(u => { map[u.id] = u.display_name })
+            setUserNames(map)
+          })
+      }
       if (incRes.data.linked_case_id) {
         supabase.from('cases').select('charge, case_number').eq('id', incRes.data.linked_case_id).single()
           .then(({ data }) => setLinkedCase(data))
@@ -274,7 +286,11 @@ export default function IncidentDetail() {
               <div key={c.id} className="px-4 py-3 flex gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-semibold text-slate-400 font-mono">#{c.user_code ?? '—'}</span>
+                    {userNames[c.user_id]
+                      ? <span className="text-xs font-semibold text-slate-300">{userNames[c.user_id]}</span>
+                      : null
+                    }
+                    <span className="text-xs font-mono text-slate-500">#{c.user_code ?? '—'}</span>
                     <span className="text-xs text-slate-600">
                       {format(new Date(c.created_at), 'd MMM yyyy · HH:mm')}
                     </span>

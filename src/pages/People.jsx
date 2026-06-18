@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Check, Search, UserCheck } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Search, UserCheck, Calendar } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
@@ -10,7 +11,7 @@ const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
 
 function PersonRow({ person, onSave, onDelete, onConfirm, canManage }) {
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ name: person.name, role: person.role ?? '', notes: person.notes ?? '' })
+  const [form, setForm] = useState({ name: person.name, role: person.role ?? '', dob: person.dob ?? '', notes: person.notes ?? '' })
   const [confirmDel, setConfirmDel] = useState(false)
 
   const save = () => { onSave(person.id, form); setEditing(false) }
@@ -22,6 +23,11 @@ function PersonRow({ person, onSave, onDelete, onConfirm, canManage }) {
           className={inputClass} style={inputStyle} />
         <input placeholder="Role (e.g. Former partner, Police officer)" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
           className={inputClass} style={inputStyle} />
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Date of birth</label>
+          <input type="date" value={form.dob} onChange={e => setForm(f => ({ ...f, dob: e.target.value }))}
+            className={inputClass} style={{ ...inputStyle, colorScheme: 'dark' }} />
+        </div>
         <textarea rows={2} placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
           className={`${inputClass} resize-none`} style={inputStyle} />
         <div className="flex gap-2 justify-end">
@@ -51,6 +57,12 @@ function PersonRow({ person, onSave, onDelete, onConfirm, canManage }) {
             )}
           </div>
           {person.role && <p className="text-xs text-slate-400 mt-0.5">{person.role}</p>}
+          {person.dob && (
+            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+              <Calendar size={10} />
+              DOB: {format(parseISO(person.dob), 'd MMM yyyy')}
+            </p>
+          )}
           {person.notes && <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{person.notes}</p>}
         </div>
         <div className="flex gap-1 shrink-0">
@@ -85,7 +97,7 @@ export default function People() {
   const [people, setPeople] = useState([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
-  const [newPerson, setNewPerson] = useState({ name: '', role: '', notes: '' })
+  const [newPerson, setNewPerson] = useState({ name: '', role: '', dob: '', notes: '' })
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -102,7 +114,7 @@ export default function People() {
     if (data) {
       setPeople(p => [...p, data].sort((a, b) => a.name.localeCompare(b.name)))
       setAdding(false)
-      setNewPerson({ name: '', role: '', notes: '' })
+      setNewPerson({ name: '', role: '', dob: '', notes: '' })
     }
   }
 
@@ -161,6 +173,11 @@ export default function People() {
               className={inputClass} style={inputStyle} />
             <input placeholder="Role" value={newPerson.role} onChange={e => setNewPerson(f => ({ ...f, role: e.target.value }))}
               className={inputClass} style={inputStyle} />
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Date of birth</label>
+              <input type="date" value={newPerson.dob} onChange={e => setNewPerson(f => ({ ...f, dob: e.target.value }))}
+                className={inputClass} style={{ ...inputStyle, colorScheme: 'dark' }} />
+            </div>
             <textarea rows={2} placeholder="Notes" value={newPerson.notes} onChange={e => setNewPerson(f => ({ ...f, notes: e.target.value }))}
               className={`${inputClass} resize-none`} style={inputStyle} />
             <div className="flex gap-2 justify-end">

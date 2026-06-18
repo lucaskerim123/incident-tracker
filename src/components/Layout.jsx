@@ -31,7 +31,7 @@ function NavItem({ to, label, icon: Icon, exact, mobile }) {
 }
 
 export default function Layout() {
-  const { userCode, signOut } = useAuth()
+  const { userCode, displayName, signOut } = useAuth()
   const { role, can } = usePermissions()
   const navigate = useNavigate()
 
@@ -69,8 +69,14 @@ export default function Layout() {
         <div className="px-2 py-3 border-t" style={{ borderColor: '#2a2d3a' }}>
           <Link to="/settings"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors w-full mb-0.5">
-            <UserCircle size={18} />
-            <span className="font-mono text-xs">#{userCode ?? '—'}</span>
+            <UserCircle size={18} className="shrink-0" />
+            <div className="min-w-0">
+              {displayName
+                ? <span className="text-sm truncate block">{displayName}</span>
+                : <span className="font-mono text-xs">#{userCode ?? '—'}</span>
+              }
+              {displayName && <span className="font-mono text-[10px] text-slate-600 block">#{userCode ?? '—'}</span>}
+            </div>
           </Link>
           <button
             onClick={handleSignOut}

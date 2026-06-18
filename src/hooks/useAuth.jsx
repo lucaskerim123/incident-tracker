@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [userRole, setUserRole] = useState(null)
   const [userCode, setUserCode] = useState(null)
   const [userStatus, setUserStatus] = useState(null)
+  const [displayName, setDisplayName] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,12 +33,13 @@ export function AuthProvider({ children }) {
   async function fetchRole(userId) {
     const { data } = await supabase
       .from('users')
-      .select('role, user_code, status')
+      .select('role, user_code, status, display_name')
       .eq('id', userId)
       .single()
     setUserRole(data?.role ?? 'viewer')
     setUserCode(data?.user_code ?? null)
     setUserStatus(data?.status ?? 'pending')
+    setDisplayName(data?.display_name ?? null)
     setLoading(false)
   }
 
@@ -60,7 +62,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user: session?.user, userRole, userCode, userStatus, loading,
+      session, user: session?.user, userRole, userCode, userStatus, displayName, loading,
       signInWithId, register, signOut, updatePasscode,
     }}>
       {children}
