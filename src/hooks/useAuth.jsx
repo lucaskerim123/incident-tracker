@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [userRole, setUserRole] = useState(null)
   const [userCode, setUserCode] = useState(null)
+  const [userStatus, setUserStatus] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,7 +23,7 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session) fetchRole(session.user.id)
-      else { setUserRole(null); setUserCode(null); setLoading(false) }
+      else { setUserRole(null); setUserCode(null); setUserStatus(null); setLoading(false) }
     })
 
     return () => subscription.unsubscribe()
@@ -31,27 +32,19 @@ export function AuthProvider({ children }) {
   async function fetchRole(userId) {
     const { data } = await supabase
       .from('users')
-      .select('role, user_code')
+      .select('role, user_code, status')
       .eq('id', userId)
       .single()
     setUserRole(data?.role ?? 'viewer')
     setUserCode(data?.user_code ?? null)
+    setUserStatus(data?.status ?? 'pending')
     setLoading(false)
   }
 
   const signInWithId = (id, password) =>
     supabase.auth.signInWithPassword({ email: idToEmail(id), password })
 
-  const registerWithInvite = async (id, token, password) => {
-    const { data: hasUsers } = await supabase.rpc('has_any_users')
-    if (hasUsers) {
-      const { data: valid, error: valErr } = await supabase.rpc('validate_invitation', {
-        p_user_code: id,
-        p_token: token,
-      })
-      if (valErr || !valid) return { error: 'Invalid ID or invite code.' }
-    }
-
+  const register = async (id, password) => {
     const { error } = await supabase.auth.signUp({
       email: idToEmail(id),
       password,
@@ -67,8 +60,8 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user: session?.user, userRole, userCode, loading,
-      signInWithId, registerWithInvite, signOut, updatePasscode,
+      session, user: session?.user, userRole, userCode, userStatus, loading,
+      signInWithId, register, signOut, updatePasscode,
     }}>
       {children}
     </AuthContext.Provider>

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { usePermissions } from './hooks/usePermissions'
 import Layout from './components/Layout'
+import PendingApproval from './components/PendingApproval'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Incidents from './pages/Incidents'
@@ -21,13 +22,14 @@ function RequireViewAdmin({ children }) {
 }
 
 function RequireAuth({ children }) {
-  const { session, loading } = useAuth()
+  const { session, loading, userStatus } = useAuth()
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0f1117' }}>
       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
   if (!session) return <Navigate to="/login" replace />
+  if (userStatus === 'pending') return <PendingApproval />
   return children
 }
 
