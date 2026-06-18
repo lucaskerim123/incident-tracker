@@ -68,14 +68,15 @@ export default function Login() {
     if (regPassword !== regConfirm) { setRegError("Passwords don't match."); return }
     if (regPassword.length < 6) { setRegError('Minimum 6 characters.'); return }
     setRegLoading(true); setRegError('')
-    const { error } = await supabase.rpc('register_user', {
-      in_email: regEmail.trim().toLowerCase(),
-      in_password: regPassword,
-      in_display_name: regDisplayName.trim() || null,
+    const { data, error } = await supabase.auth.signUp({
+      email: regEmail.trim().toLowerCase(),
+      password: regPassword,
+      options: { data: { display_name: regDisplayName.trim() || null } },
     })
     setRegLoading(false)
     if (error) setRegError(error.message)
-    else setRegDone(true)
+    else if (data?.user) setRegDone(true)
+    else setRegError('Something went wrong. Try again.')
   }
 
   const resetLogin = () => {
