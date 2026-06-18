@@ -82,7 +82,7 @@ export default function Admin() {
   const [confirmRevoke, setConfirmRevoke] = useState(null)
 
   useEffect(() => {
-    supabase.from('users').select('id, user_code, display_name, email, role, created_at').eq('status', 'active').order('user_code')
+    supabase.from('users').select('id, user_code, display_name, email, role, status, created_at').neq('status', 'pending').order('user_code')
       .then(({ data }) => setAppUsers(data ?? []))
     supabase.from('users').select('id, user_code, created_at').eq('status', 'pending').order('created_at')
       .then(({ data }) => {
@@ -98,7 +98,7 @@ export default function Admin() {
       .order('deletion_requested_at')
       .then(({ data }) => setDeletionRequests(data ?? []))
     supabase.from('users')
-      .select('id, user_code, role, password_reset_requested_at')
+      .select('id, user_code, role, password_reset_requested_at, password_reset_token')
       .eq('status', 'active')
       .not('password_reset_requested_at', 'is', null)
       .order('password_reset_requested_at')
@@ -135,27 +135,19 @@ export default function Admin() {
     setDeletionRequests(d => d.filter(x => x.id !== userId))
   }
 
-  const resolvePwReset = async (userId) => {
-    const pw = pwInput[userId] ?? ''
-    if (!pw || pw.length < 6) {
-      setPwMsg(m => ({ ...m, [userId]: { text: 'Min 6 characters.', ok: false } }))
-      return
-    }
+  const approvePasswordReset = async (userId) => {
     setPwLoading(l => ({ ...l, [userId]: true }))
-    setPwMsg(m => ({ ...m, [userId]: { text: '', ok: false } }))
-    const { error } = await supabase.rpc('admin_reset_password', { target_id: userId, new_password: pw })
+    const { error } = await supabase.rpc('approve_password_reset', { target_id: userId })
     setPwLoading(l => ({ ...l, [userId]: false }))
     if (error) {
-      setPwMsg(m => ({ ...m, [userId]: { text: 'Reset failed.', ok: false } }))
+      setPwMsg(m => ({ ...m, [userId]: { text: 'Approval failed.', ok: false } }))
     } else {
       setPwResetRequests(r => r.filter(x => x.id !== userId))
-      setPwInput(p => ({ ...p, [userId]: '' }))
-      setPwMsg(m => ({ ...m, [userId]: { text: '', ok: false } }))
     }
   }
 
-  const dismissPwReset = async (userId) => {
-    await supabase.from('users').update({ password_reset_requested_at: null }).eq('id', userId)
+  const denyPasswordReset = async (userId) => {
+    await supabase.from('users').update({ password_reset_requested_at: null, password_reset_token: null }).eq('id', userId)
     setPwResetRequests(r => r.filter(x => x.id !== userId))
   }
 
@@ -191,7 +183,7 @@ export default function Admin() {
 
   const openEdit = (u) => {
     setExpandedUser(u.id)
-    setEditForm({ displayName: u.display_name ?? '', role: u.role })
+    setEditForm({ displayName: u.display_name ?? '', role: u.role, status: u.status ?? 'active' })
     setEditMsg({})
   }
 
@@ -203,14 +195,14 @@ export default function Admin() {
   const saveUserEdit = async (userId) => {
     setEditLoading(true)
     const { error } = await supabase.from('users')
-      .update({ display_name: editForm.displayName.trim() || null, role: editForm.role })
+      .update({ display_name: editForm.displayName.trim() || null, role: editForm.role, status: editForm.status })
       .eq('id', userId)
     setEditLoading(false)
     if (error) {
       setEditMsg(m => ({ ...m, [userId]: { text: 'Save failed.', ok: false } }))
       return
     }
-    setAppUsers(u => u.map(x => x.id === userId ? { ...x, display_name: editForm.displayName.trim() || null, role: editForm.role } : x))
+    setAppUsers(u => u.map(x => x.id === userId ? { ...x, display_name: editForm.displayName.trim() || null, role: editForm.role, status: editForm.status } : x))
     setExpandedUser(null)
   }
 
@@ -235,6 +227,10 @@ export default function Admin() {
 
   const pendingCount = pendingUsers.length + deletionRequests.length + pwResetRequests.length
 
+  const activeCount = appUsers.filter(u => u.status === 'active').length
+  const suspendedCount = appUsers.filter(u => u.status === 'suspended').length
+  const blockedCount = appUsers.filter(u => u.status === 'blocked').length
+
   const filtered = appUsers
     .filter(u => roleFilter ? u.role === roleFilter : true)
     .filter(u => search
@@ -258,9 +254,11 @@ export default function Admin() {
       {/* Stats bar */}
       <div className="flex flex-wrap gap-2 mb-4">
         {[
-          { label: 'Active', val: appUsers.length, color: '#34d399' },
+          { label: 'Active', val: activeCount, color: '#34d399' },
+          { label: 'Suspended', val: suspendedCount, color: suspendedCount > 0 ? '#eab308' : '#475569', hide: suspendedCount === 0 },
+          { label: 'Blocked', val: blockedCount, color: blockedCount > 0 ? '#f87171' : '#475569', hide: blockedCount === 0 },
           { label: 'Pending', val: pendingCount, color: pendingCount > 0 ? '#eab308' : '#475569' },
-        ].map(s => (
+        ].filter(s => !s.hide).map(s => (
           <div key={s.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
             style={{ background: '#1a1d27', border: '1px solid #2a2d3a', color: s.color }}>
             <span style={{ color: s.color }}>{s.val}</span>
@@ -365,47 +363,38 @@ export default function Admin() {
 
               {/* Password reset requests */}
               {pwResetRequests.map(u => (
-                <div key={`pwr-${u.id}`} className="rounded-lg overflow-hidden" style={{ background: '#0f1117' }}>
-                  <div className="flex items-center justify-between gap-2 p-2.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <TypeBadge type="pwreset" />
-                      <RoleBadge role={u.role} />
-                      <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
-                      <span className="text-xs text-slate-600">
-                        {u.password_reset_requested_at && format(new Date(u.password_reset_requested_at), 'd MMM yyyy')}
+                <div key={`pwr-${u.id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-lg"
+                  style={{ background: '#0f1117' }}>
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <TypeBadge type="pwreset" />
+                    <RoleBadge role={u.role} />
+                    <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
+                    {u.password_reset_token && (
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded"
+                        style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
+                        code: {u.password_reset_token}
                       </span>
-                    </div>
-                    {canManage && (
-                      <button onClick={() => dismissPwReset(u.id)}
-                        className="p-1.5 text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded transition-colors"
-                        title="Dismiss">
-                        <X size={14} />
-                      </button>
                     )}
+                    <span className="text-xs text-slate-600">
+                      {u.password_reset_requested_at && format(new Date(u.password_reset_requested_at), 'd MMM yyyy')}
+                    </span>
                   </div>
                   {canManage && (
-                    <div className="px-2.5 pb-2.5 flex gap-2 items-start">
-                      <div className="relative flex-1">
-                        <KeyRound size={12} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
-                        <input
-                          type="password"
-                          value={pwInput[u.id] ?? ''}
-                          onChange={e => setPwInput(p => ({ ...p, [u.id]: e.target.value }))}
-                          placeholder="Set new password (min 6)"
-                          className="w-full rounded-lg pl-8 pr-3 py-2 text-xs text-slate-300 border outline-none focus:border-indigo-500 transition-colors"
-                          style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
-                      </div>
-                      <button
-                        onClick={() => resolvePwReset(u.id)}
-                        disabled={pwLoading[u.id]}
-                        className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50 shrink-0"
-                        style={{ background: '#6366f1' }}>
-                        {pwLoading[u.id] ? '…' : 'Set & Resolve'}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => denyPasswordReset(u.id)}
+                        className="p-1.5 text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded transition-colors"
+                        title="Deny">
+                        <X size={14} />
+                      </button>
+                      <button onClick={() => approvePasswordReset(u.id)} disabled={pwLoading[u.id]}
+                        className="p-1.5 text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors disabled:opacity-40"
+                        title="Approve — set password to submitted code">
+                        {pwLoading[u.id] ? <span className="text-xs">…</span> : <UserCheck size={14} />}
                       </button>
                     </div>
                   )}
                   {pwMsg[u.id]?.text && (
-                    <p className={`text-xs px-2.5 pb-2 ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
+                    <p className={`text-xs ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
                   )}
                 </div>
               ))}
@@ -528,6 +517,12 @@ export default function Admin() {
                 <div className="flex items-center justify-between gap-2 p-2.5">
                   <div className="flex items-center gap-2 min-w-0">
                     <RoleBadge role={u.role} />
+                    {u.status === 'suspended' && (
+                      <span style={{ background: 'rgba(234,179,8,0.12)', color: '#eab308', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>Suspended</span>
+                    )}
+                    {u.status === 'blocked' && (
+                      <span style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>Blocked</span>
+                    )}
                     <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
                     {u.display_name
                       ? <span className="text-xs text-slate-300 truncate">{u.display_name}</span>
@@ -565,7 +560,7 @@ export default function Admin() {
                       <div className="col-span-2">
                         <label className="text-xs text-slate-500 mb-1 block">Display name</label>
                         <input
-                          value={editForm.displayName}
+                          value={editForm.displayName ?? ''}
                           onChange={e => setEditForm(f => ({ ...f, displayName: e.target.value }))}
                           placeholder="No name set"
                           className={inputClass} style={inputStyle} />
@@ -578,6 +573,18 @@ export default function Admin() {
                           className={`${inputClass} text-xs`} style={inputStyle}
                           disabled={!isAdmin && u.id === user?.id}>
                           {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500 mb-1 block">Status</label>
+                        <select
+                          value={editForm.status}
+                          onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                          className={`${inputClass} text-xs`} style={inputStyle}
+                          disabled={u.id === user?.id}>
+                          <option value="active">Active</option>
+                          <option value="suspended">Suspended</option>
+                          <option value="blocked">Blocked</option>
                         </select>
                       </div>
                       <div className="flex items-end">

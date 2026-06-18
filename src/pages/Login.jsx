@@ -20,6 +20,7 @@ export default function Login() {
   const [forgotCode, setForgotCode] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotDone, setForgotDone] = useState(false)
+  const [forgotToken, setForgotToken] = useState('')
   const [forgotError, setForgotError] = useState('')
 
   // Register
@@ -40,14 +41,21 @@ export default function Login() {
     setLoading(true); setError('')
     const { error } = await signInWithId(userId.trim(), password)
     setLoading(false)
-    if (error) setError('Invalid access ID or password.')
+    if (error) {
+      if (error.message && error.message !== 'Invalid login credentials') {
+        setError(error.message)
+      } else {
+        setError('Invalid access ID or password.')
+      }
+    }
   }
 
   const handleForgot = async (e) => {
     e.preventDefault()
     if (!forgotCode.trim()) return
+    if (forgotToken.length !== 4) return
     setForgotLoading(true); setForgotError('')
-    const { error } = await supabase.rpc('request_password_reset', { in_user_code: forgotCode.trim() })
+    const { error } = await supabase.rpc('request_password_reset', { in_user_code: forgotCode.trim(), in_token: forgotToken })
     setForgotLoading(false)
     if (error) setForgotError('Something went wrong. Try again.')
     else setForgotDone(true)
@@ -70,7 +78,7 @@ export default function Login() {
     setTimeout(() => setCodeCopied(false), 2000)
   }
 
-  const resetLogin = () => { setTab('login'); setForgotMode(false); setForgotDone(false); setForgotCode(''); setForgotError('') }
+  const resetLogin = () => { setTab('login'); setForgotMode(false); setForgotDone(false); setForgotCode(''); setForgotToken(''); setForgotError('') }
   const resetRegister = () => { setRegDone(false); setRegPassword(''); setRegConfirm(''); setAssignedCode(null) }
 
   const inputClass = 'w-full rounded-xl px-4 py-3 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
@@ -146,7 +154,7 @@ export default function Login() {
                 </div>
                 <p className="font-semibold text-slate-100">Request submitted</p>
                 <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-                  An admin will reset your password. Once done, try signing in with your access ID.
+                  Once approved, sign in with your access ID and the 4-digit code you chose as your password.
                 </p>
                 <button onClick={resetLogin}
                   className="mt-4 text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mx-auto">
@@ -160,7 +168,7 @@ export default function Login() {
                   <ArrowLeft size={12} /> Back
                 </button>
                 <p className="text-sm font-semibold text-slate-100">Reset password</p>
-                <p className="text-xs text-slate-500">Enter your access ID. An admin will set a new password for you.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Enter your access ID and choose a 4-digit code as your new password. An admin will approve or deny the request.</p>
                 <div className="relative">
                   <Hash size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
                   <input type="text" inputMode="numeric" placeholder="Your Access ID"
@@ -168,8 +176,16 @@ export default function Login() {
                     onChange={e => setForgotCode(e.target.value.replace(/\D/g, ''))}
                     className={`${inputClass} pl-9`} style={inputStyle} />
                 </div>
+                <div className="relative">
+                  <KeyRound size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
+                  <input type="text" inputMode="numeric" placeholder="4-digit new password code"
+                    required maxLength={4}
+                    value={forgotToken}
+                    onChange={e => setForgotToken(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    className={`${inputClass} pl-9`} style={inputStyle} />
+                </div>
                 {forgotError && <p className="text-xs text-red-400">{forgotError}</p>}
-                <button type="submit" disabled={forgotLoading}
+                <button type="submit" disabled={forgotLoading || forgotToken.length !== 4}
                   className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50"
                   style={{ background: '#6366f1' }}>
                   {forgotLoading ? 'Submitting…' : 'Request Reset'}

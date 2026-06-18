@@ -43,8 +43,26 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }
 
-  const signInWithId = (id, password) =>
-    supabase.auth.signInWithPassword({ email: idToEmail(id), password })
+  const signInWithId = async (id, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email: idToEmail(id), password })
+    if (error) return { data: null, error }
+    const { data: userData } = await supabase.from('users')
+      .select('status').eq('id', data.user.id).single()
+    const status = userData?.status
+    if (status === 'pending') {
+      await supabase.auth.signOut()
+      return { data: null, error: { message: 'Account is pending admin approval.' } }
+    }
+    if (status === 'suspended') {
+      await supabase.auth.signOut()
+      return { data: null, error: { message: 'Account suspended. Contact an admin.' } }
+    }
+    if (status === 'blocked') {
+      await supabase.auth.signOut()
+      return { data: null, error: { message: 'Account has been blocked.' } }
+    }
+    return { data, error: null }
+  }
 
   const register = async (id, password) => {
     const { error } = await supabase.auth.signUp({
