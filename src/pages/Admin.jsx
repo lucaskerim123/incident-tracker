@@ -107,14 +107,16 @@ export default function Admin() {
 
   const approveUser = async (userId) => {
     const role = pendingRoles[userId] ?? 'viewer'
-    await supabase.from('users').update({ status: 'active', role }).eq('id', userId)
+    const { error } = await supabase.from('users').update({ status: 'active', role }).eq('id', userId)
+    if (error) { alert(`Failed to approve: ${error.message}`); return }
     const approved = pendingUsers.find(u => u.id === userId)
     if (approved) setAppUsers(a => [...a, { ...approved, role, status: 'active' }].sort((a, b) => a.user_code - b.user_code))
     setPendingUsers(p => p.filter(u => u.id !== userId))
   }
 
   const rejectUser = async (userId) => {
-    await supabase.from('users').delete().eq('id', userId)
+    const { error } = await supabase.rpc('delete_user', { target_id: userId })
+    if (error) { alert(`Failed to reject: ${error.message}`); return }
     setPendingUsers(p => p.filter(u => u.id !== userId))
   }
 
@@ -131,7 +133,8 @@ export default function Admin() {
   }
 
   const rejectDeletion = async (userId) => {
-    await supabase.from('users').update({ deletion_requested_at: null }).eq('id', userId)
+    const { error } = await supabase.from('users').update({ deletion_requested_at: null }).eq('id', userId)
+    if (error) { alert(`Failed to reject deletion: ${error.message}`); return }
     setDeletionRequests(d => d.filter(x => x.id !== userId))
   }
 
