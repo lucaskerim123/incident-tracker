@@ -12,6 +12,7 @@ import IncidentDetail from './pages/IncidentDetail'
 import AddIncident from './pages/AddIncident'
 import EditIncident from './pages/EditIncident'
 import People from './pages/People'
+import PersonDetail from './pages/PersonDetail'
 import CaseStatus from './pages/CaseStatus'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="incidents/:id" element={<IncidentDetail />} />
         <Route path="incidents/:id/edit" element={<EditIncident />} />
         <Route path="people" element={<People />} />
+        <Route path="people/:id" element={<PersonDetail />} />
         <Route path="cases" element={<CaseStatus />} />
         <Route path="documents" element={<Documents />} />
         <Route path="settings" element={<Settings />} />
