@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "Incident Tracker",
+  "short_name": "Incidents",
+  "description": "Private & secure incident tracking",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["productivity", "utilities"]
+}

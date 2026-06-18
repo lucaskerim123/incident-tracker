@@ -13,7 +13,7 @@ const navItems = [
 
 function NavItem({ to, label, icon: Icon, exact, mobile }) {
   const base = mobile
-    ? 'flex flex-col items-center gap-0.5 flex-1 py-2 text-xs font-medium transition-colors'
+    ? 'flex flex-col items-center gap-0.5 flex-1 py-3 text-xs font-medium transition-colors min-w-0'
     : 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full'
   const active = 'text-indigo-400 bg-indigo-500/10'
   const inactive = 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
@@ -24,7 +24,7 @@ function NavItem({ to, label, icon: Icon, exact, mobile }) {
       end={exact}
       className={({ isActive }) => `${base} ${isActive ? active : inactive}`}
     >
-      <Icon size={mobile ? 20 : 18} />
+      <Icon size={mobile ? 22 : 18} />
       <span>{label}</span>
     </NavLink>
   )
@@ -43,7 +43,7 @@ export default function Layout() {
   const rs = ROLE_STYLES[role] ?? ROLE_STYLES.viewer
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#0f1117' }}>
+    <div className="flex min-h-dvh" style={{ background: '#0f1117' }}>
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-56 border-r shrink-0 sticky top-0 h-screen"
         style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
@@ -91,29 +91,29 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b sticky top-0 z-10"
-          style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
+        <header className="md:hidden flex items-center justify-between px-4 pb-3 border-b sticky top-0 z-10"
+          style={{ background: '#0f1117', borderColor: '#2a2d3a', paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
           <div className="flex items-center gap-2">
             <Shield size={18} className="text-indigo-400" />
             <span className="font-semibold text-slate-100 text-sm">Incident Tracker</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Link to="/settings" className="text-slate-400 hover:text-slate-200 p-1">
-              <UserCircle size={18} />
+          <div className="flex items-center gap-0.5">
+            <Link to="/settings" className="text-slate-400 hover:text-slate-200 p-2.5 rounded-lg hover:bg-white/5 transition-colors">
+              <UserCircle size={20} />
             </Link>
-            <button onClick={handleSignOut} className="text-slate-400 hover:text-red-400 p-1">
-              <LogOut size={18} />
+            <button onClick={handleSignOut} className="text-slate-400 hover:text-red-400 p-2.5 rounded-lg hover:bg-red-500/10 transition-colors">
+              <LogOut size={20} />
             </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+        <main className="flex-1 overflow-y-auto pb-nav">
           <Outlet />
         </main>
 
-        {/* Mobile bottom nav — Settings lives in the header (UserCircle), not here */}
+        {/* Mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t z-10 flex justify-around"
-          style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
+          style={{ background: '#0f1117', borderColor: '#2a2d3a', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           {navItems.map(item => <NavItem key={item.to} {...item} mobile />)}
           {can.viewAdmin && <NavItem to="/admin" label="Admin" icon={Shield} mobile />}
         </nav>

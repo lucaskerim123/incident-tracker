@@ -73,7 +73,7 @@ export default function EditIncident() {
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+        <button onClick={() => navigate(-1)} className="p-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-xl font-bold text-slate-100">Edit Incident</h1>

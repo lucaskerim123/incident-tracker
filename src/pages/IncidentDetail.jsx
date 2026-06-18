@@ -111,7 +111,7 @@ export default function IncidentDetail() {
 
   if (notFound) return (
     <div className="p-4 max-w-2xl mx-auto">
-      <button onClick={() => navigate(-1)} className="p-1.5 mb-4 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+      <button onClick={() => navigate(-1)} className="p-2.5 mb-4 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
         <ArrowLeft size={20} />
       </button>
       <div className="rounded-xl p-10 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
@@ -133,22 +133,22 @@ export default function IncidentDetail() {
     <div className="p-4 max-w-2xl mx-auto pb-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+        <button onClick={() => navigate(-1)} className="p-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
           <ArrowLeft size={20} />
         </button>
         <div className="flex gap-2">
           {can.edit && (
             <button onClick={() => navigate(`/incidents/${id}/edit`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-300 border hover:text-slate-100 hover:border-indigo-500/50 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 border hover:text-slate-100 hover:border-indigo-500/50 transition-colors"
               style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-              <Pencil size={14} /> Edit
+              <Pencil size={15} /> Edit
             </button>
           )}
           {can.delete && (
             <button onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors"
               style={{ background: '#1a1d27' }}>
-              <Trash2 size={14} /> Delete
+              <Trash2 size={15} /> Delete
             </button>
           )}
         </div>

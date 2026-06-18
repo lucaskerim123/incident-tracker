@@ -156,7 +156,7 @@ export default function Dashboard() {
 
       {can.add && (
         <button onClick={() => navigate('/incidents/new')}
-          className="md:hidden fixed bottom-20 right-4 w-12 h-12 rounded-full flex items-center justify-center shadow-lg z-10"
+          className="md:hidden fixed fab-offset right-4 w-14 h-14 rounded-full flex items-center justify-center shadow-lg z-10"
           style={{ background: '#6366f1' }}>
           <Plus size={22} className="text-white" />
         </button>
