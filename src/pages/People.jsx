@@ -17,17 +17,16 @@ const emptyForm = {
   legal_update: '', legal_notes: '', profile_url: '', notes: '',
 }
 
-function PersonCard({ person, onDelete, onConfirm, canManage, navigate }) {
+function PersonCard({ person, onDelete, onConfirm, canManage, canViewDetail, navigate }) {
   const [confirmDel, setConfirmDel] = useState(false)
   const isPending = person.status === 'awaiting_review'
   const firstLabel = person.labels?.[0] || person.role
-  const bioPreview = person.bio ? person.bio.slice(0, 90).trimEnd() + (person.bio.length > 90 ? '…' : '') : null
 
   return (
     <div
-      className="rounded-xl p-4 border cursor-pointer hover:border-indigo-500/30 transition-colors"
+      className={`rounded-xl p-4 border transition-colors ${canViewDetail ? 'cursor-pointer hover:border-indigo-500/30' : ''}`}
       style={{ background: '#1a1d27', borderColor: isPending ? 'rgba(234,179,8,0.3)' : '#2a2d3a' }}
-      onClick={() => navigate(`/people/${person.id}`)}>
+      onClick={() => canViewDetail && navigate(`/people/${person.id}`)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -50,9 +49,6 @@ function PersonCard({ person, onDelete, onConfirm, canManage, navigate }) {
               {firstLabel}
             </span>
           )}
-          {bioPreview && (
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{bioPreview}</p>
-          )}
         </div>
         <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
           {canManage && isPending && (
@@ -67,7 +63,7 @@ function PersonCard({ person, onDelete, onConfirm, canManage, navigate }) {
               <Trash2 size={14} />
             </button>
           )}
-          <ChevronRight size={14} className="text-slate-600 ml-1" />
+          {canViewDetail && <ChevronRight size={14} className="text-slate-600 ml-1" />}
         </div>
       </div>
       <ConfirmDialog open={confirmDel} title="Remove Person"
@@ -252,7 +248,7 @@ export default function People() {
               <div className="flex flex-col gap-2">
                 {awaiting.map(p => (
                   <PersonCard key={p.id} person={p} onDelete={deletePerson}
-                    onConfirm={confirmPerson} canManage={can.managePeople} navigate={navigate} />
+                    onConfirm={confirmPerson} canManage={can.managePeople} canViewDetail={can.viewSensitiveNotes} navigate={navigate} />
                 ))}
               </div>
             </div>
@@ -268,7 +264,7 @@ export default function People() {
               <div className="flex flex-col gap-2">
                 {confirmed.map(p => (
                   <PersonCard key={p.id} person={p} onDelete={deletePerson}
-                    onConfirm={confirmPerson} canManage={can.managePeople} navigate={navigate} />
+                    onConfirm={confirmPerson} canManage={can.managePeople} canViewDetail={can.viewSensitiveNotes} navigate={navigate} />
                 ))}
               </div>
             </div>
