@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Trash2, Eye } from 'lucide-react'
+import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle } from 'lucide-react'
+import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
@@ -29,6 +30,7 @@ export default function Admin() {
 
   const [appUsers, setAppUsers] = useState([])
   const [pendingUsers, setPendingUsers] = useState([])
+  const [deletionRequests, setDeletionRequests] = useState([])
   const [pendingRoles, setPendingRoles] = useState({})
   const [confirmRevoke, setConfirmRevoke] = useState(null)
 
@@ -42,6 +44,12 @@ export default function Admin() {
         ;(data ?? []).forEach(u => { roles[u.id] = 'viewer' })
         setPendingRoles(roles)
       })
+    supabase.from('users')
+      .select('id, user_code, role, deletion_requested_at')
+      .eq('status', 'active')
+      .not('deletion_requested_at', 'is', null)
+      .order('deletion_requested_at')
+      .then(({ data }) => setDeletionRequests(data ?? []))
   }, [])
 
   const approveUser = async (userId) => {
@@ -58,9 +66,20 @@ export default function Admin() {
   }
 
   const revokeUser = async (userId) => {
-    await supabase.from('users').delete().eq('id', userId)
+    await supabase.rpc('delete_user', { target_id: userId })
     setAppUsers(u => u.filter(x => x.id !== userId))
     setConfirmRevoke(null)
+  }
+
+  const approveDeletion = async (userId) => {
+    await supabase.rpc('delete_user', { target_id: userId })
+    setDeletionRequests(d => d.filter(x => x.id !== userId))
+    setAppUsers(u => u.filter(x => x.id !== userId))
+  }
+
+  const rejectDeletion = async (userId) => {
+    await supabase.from('users').update({ deletion_requested_at: null }).eq('id', userId)
+    setDeletionRequests(d => d.filter(x => x.id !== userId))
   }
 
   const changeRole = async (userId, newRole) => {
@@ -78,6 +97,44 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* Deletion Requests */}
+      {(deletionRequests.length > 0) && (
+        <div className="rounded-xl p-4 border mb-4" style={{ background: '#1a1d27', borderColor: 'rgba(239,68,68,0.25)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={13} className="text-red-400" />
+            <SectionTitle><span className="text-red-400">Deletion Requests · {deletionRequests.length}</span></SectionTitle>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {deletionRequests.map(u => (
+              <div key={u.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg"
+                style={{ background: '#0f1117' }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <RoleBadge role={u.role} />
+                  <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
+                  <span className="text-xs text-slate-600">
+                    {u.deletion_requested_at && `Requested ${format(new Date(u.deletion_requested_at), 'd MMM yyyy')}`}
+                  </span>
+                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => rejectDeletion(u.id)}
+                      className="p-1.5 text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded transition-colors"
+                      title="Reject — keep account">
+                      <X size={14} />
+                    </button>
+                    <button onClick={() => approveDeletion(u.id)}
+                      className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                      title="Approve — delete account">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Pending Users */}
       {(pendingUsers.length > 0 || isAdmin) && (
@@ -161,7 +218,7 @@ export default function Admin() {
       <ConfirmDialog
         open={!!confirmRevoke}
         title="Remove User"
-        message={`Remove access for user #${confirmRevoke?.user_code ?? '—'}? They will no longer be able to sign in.`}
+        message={`Remove access for user #${confirmRevoke?.user_code ?? '—'}? This permanently deletes their account.`}
         confirmLabel="Remove"
         onConfirm={() => revokeUser(confirmRevoke?.id)}
         onCancel={() => setConfirmRevoke(null)}
