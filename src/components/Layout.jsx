@@ -13,7 +13,7 @@ const navItems = [
 
 function NavItem({ to, label, icon: Icon, exact, mobile }) {
   const base = mobile
-    ? 'flex flex-col items-center gap-0.5 px-2 py-1 text-xs font-medium transition-colors'
+    ? 'flex flex-col items-center gap-0.5 flex-1 py-2 text-xs font-medium transition-colors'
     : 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full'
   const active = 'text-indigo-400 bg-indigo-500/10'
   const inactive = 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
@@ -111,11 +111,10 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t z-10 flex"
+        {/* Mobile bottom nav — Settings lives in the header (UserCircle), not here */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t z-10 flex justify-around"
           style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
           {navItems.map(item => <NavItem key={item.to} {...item} mobile />)}
-          <NavItem to="/settings" label="Settings" icon={Settings} mobile />
           {can.viewAdmin && <NavItem to="/admin" label="Admin" icon={Shield} mobile />}
         </nav>
       </div>
