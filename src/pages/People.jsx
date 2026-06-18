@@ -10,10 +10,18 @@ import ConfirmDialog from '../components/ConfirmDialog'
 const inputClass = 'w-full rounded-lg px-3 py-2 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
 const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
 
+const emptyForm = {
+  name: '', role: '', dob: '',
+  bio: '',
+  labelsStr: '', associateLabelsStr: '',
+  legal_update: '', legal_notes: '', profile_url: '', notes: '',
+}
+
 function PersonCard({ person, onDelete, onConfirm, canManage, navigate }) {
   const [confirmDel, setConfirmDel] = useState(false)
   const isPending = person.status === 'awaiting_review'
   const firstLabel = person.labels?.[0] || person.role
+  const bioPreview = person.bio ? person.bio.slice(0, 90).trimEnd() + (person.bio.length > 90 ? '…' : '') : null
 
   return (
     <div
@@ -41,6 +49,9 @@ function PersonCard({ person, onDelete, onConfirm, canManage, navigate }) {
               style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}>
               {firstLabel}
             </span>
+          )}
+          {bioPreview && (
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{bioPreview}</p>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
@@ -74,11 +85,7 @@ export default function People() {
   const [people, setPeople] = useState([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
-  const [newPerson, setNewPerson] = useState({
-    name: '', role: '', dob: '',
-    labelsStr: '', associateLabelsStr: '',
-    legal_update: '', profile_url: '', notes: '',
-  })
+  const [newPerson, setNewPerson] = useState(emptyForm)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -96,9 +103,11 @@ export default function People() {
         name: newPerson.name.trim(),
         role: newPerson.role.trim() || null,
         dob: newPerson.dob || null,
+        bio: newPerson.bio.trim() || null,
         labels,
         associate_labels,
         legal_update: newPerson.legal_update.trim() || null,
+        legal_notes: newPerson.legal_notes.trim() || null,
         profile_url: newPerson.profile_url.trim() || null,
         notes: newPerson.notes.trim() || null,
         user_id: user.id,
@@ -108,7 +117,7 @@ export default function People() {
     if (data) {
       setPeople(p => [...p, data].sort((a, b) => a.name.localeCompare(b.name)))
       setAdding(false)
-      setNewPerson({ name: '', role: '', dob: '', labelsStr: '', associateLabelsStr: '', legal_update: '', profile_url: '', notes: '' })
+      setNewPerson(emptyForm)
     }
   }
 
@@ -127,6 +136,7 @@ export default function People() {
     ? people.filter(p =>
         p.name?.toLowerCase().includes(q) ||
         p.role?.toLowerCase().includes(q) ||
+        p.bio?.toLowerCase().includes(q) ||
         p.labels?.some(l => l.toLowerCase().includes(q))
       )
     : people
@@ -165,7 +175,7 @@ export default function People() {
             <input placeholder="Name *" value={newPerson.name}
               onChange={e => setNewPerson(f => ({ ...f, name: e.target.value }))}
               className={inputClass} style={inputStyle} />
-            <input placeholder="Role (primary description)" value={newPerson.role}
+            <input placeholder="Role (short primary description)" value={newPerson.role}
               onChange={e => setNewPerson(f => ({ ...f, role: e.target.value }))}
               className={inputClass} style={inputStyle} />
             <div>
@@ -175,10 +185,16 @@ export default function People() {
                 className={inputClass} style={{ ...inputStyle, colorScheme: 'dark' }} />
             </div>
             <div>
+              <label className="text-xs text-slate-500 mb-1 block">Bio / Overview</label>
+              <textarea rows={3} placeholder="General overview or summary…"
+                value={newPerson.bio} onChange={e => setNewPerson(f => ({ ...f, bio: e.target.value }))}
+                className={`${inputClass} resize-none`} style={inputStyle} />
+            </div>
+            <div>
               <label className="text-xs text-slate-500 mb-1 block">
                 Labels <span className="text-slate-600">(comma-separated)</span>
               </label>
-              <input placeholder="e.g. Former partner, Police officer" value={newPerson.labelsStr}
+              <input placeholder="e.g. Former partner, Mother of Evelyn" value={newPerson.labelsStr}
                 onChange={e => setNewPerson(f => ({ ...f, labelsStr: e.target.value }))}
                 className={inputClass} style={inputStyle} />
             </div>
@@ -186,19 +202,28 @@ export default function People() {
               <label className="text-xs text-slate-500 mb-1 block">
                 Associate Labels <span className="text-slate-600">(comma-separated)</span>
               </label>
-              <input placeholder="e.g. Key witness, Support person" value={newPerson.associateLabelsStr}
+              <input placeholder="e.g. Central figure, Witness" value={newPerson.associateLabelsStr}
                 onChange={e => setNewPerson(f => ({ ...f, associateLabelsStr: e.target.value }))}
                 className={inputClass} style={inputStyle} />
             </div>
             <input placeholder="Legal update (e.g. AVO dismissed)" value={newPerson.legal_update}
               onChange={e => setNewPerson(f => ({ ...f, legal_update: e.target.value }))}
               className={inputClass} style={inputStyle} />
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Legal notes (private)</label>
+              <textarea rows={2} placeholder="Private legal strategy / lawyer notes…"
+                value={newPerson.legal_notes} onChange={e => setNewPerson(f => ({ ...f, legal_notes: e.target.value }))}
+                className={`${inputClass} resize-none`} style={inputStyle} />
+            </div>
             <input placeholder="External profile URL" value={newPerson.profile_url}
               onChange={e => setNewPerson(f => ({ ...f, profile_url: e.target.value }))}
               className={inputClass} style={inputStyle} />
-            <textarea rows={3} placeholder="Private notes / mental health reference"
-              value={newPerson.notes} onChange={e => setNewPerson(f => ({ ...f, notes: e.target.value }))}
-              className={`${inputClass} resize-none`} style={inputStyle} />
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Mental health reference (private)</label>
+              <textarea rows={3} placeholder="Private mental health reference…"
+                value={newPerson.notes} onChange={e => setNewPerson(f => ({ ...f, notes: e.target.value }))}
+                className={`${inputClass} resize-none`} style={inputStyle} />
+            </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setAdding(false)} className="px-3 py-1.5 text-sm text-slate-400">Cancel</button>
               <button onClick={addPerson}
