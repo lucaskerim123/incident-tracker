@@ -10,7 +10,7 @@ const PERMISSIONS = {
   editor: {
     view: true, add: true, edit: true, delete: false,
     upload: true, managePeople: true, manageCases: true,
-    manageUsers: false, inviteUsers: false, export: true, viewAdmin: true,
+    manageUsers: true, inviteUsers: false, export: true, viewAdmin: true,
     canComment: true,
   },
   lawyer: {
