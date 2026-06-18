@@ -154,7 +154,7 @@ export default function Login() {
                 </div>
                 <p className="font-semibold text-slate-100">Request submitted</p>
                 <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-                  Once approved, sign in with your access ID and the 4-digit code you chose as your password.
+                  An admin will verify the code with you before resetting your password.
                 </p>
                 <button onClick={resetLogin}
                   className="mt-4 text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mx-auto">
@@ -168,7 +168,7 @@ export default function Login() {
                   <ArrowLeft size={12} /> Back
                 </button>
                 <p className="text-sm font-semibold text-slate-100">Reset password</p>
-                <p className="text-xs text-slate-500 leading-relaxed">Enter your access ID and choose a 4-digit code as your new password. An admin will approve or deny the request.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Enter your access ID and pick a 4-digit confirmation code. Share it with an admin — they'll verify it before resetting your password.</p>
                 <div className="relative">
                   <Hash size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
                   <input type="text" inputMode="numeric" placeholder="Your Access ID"
@@ -178,7 +178,7 @@ export default function Login() {
                 </div>
                 <div className="relative">
                   <KeyRound size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                  <input type="text" inputMode="numeric" placeholder="4-digit new password code"
+                  <input type="text" inputMode="numeric" placeholder="4-digit confirmation code"
                     required maxLength={4}
                     value={forgotToken}
                     onChange={e => setForgotToken(e.target.value.replace(/\D/g, '').slice(0, 4))}

@@ -363,38 +363,61 @@ export default function Admin() {
 
               {/* Password reset requests */}
               {pwResetRequests.map(u => (
-                <div key={`pwr-${u.id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-lg"
-                  style={{ background: '#0f1117' }}>
-                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                    <TypeBadge type="pwreset" />
-                    <RoleBadge role={u.role} />
-                    <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
-                    {u.password_reset_token && (
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded"
-                        style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
-                        code: {u.password_reset_token}
+                <div key={`pwr-${u.id}`} className="rounded-lg overflow-hidden" style={{ background: '#0f1117' }}>
+                  <div className="flex items-center justify-between gap-2 p-2.5">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <TypeBadge type="pwreset" />
+                      <RoleBadge role={u.role} />
+                      <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
+                      {u.password_reset_token && (
+                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded"
+                          style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
+                          confirm: {u.password_reset_token}
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-600">
+                        {u.password_reset_requested_at && format(new Date(u.password_reset_requested_at), 'd MMM yyyy')}
                       </span>
-                    )}
-                    <span className="text-xs text-slate-600">
-                      {u.password_reset_requested_at && format(new Date(u.password_reset_requested_at), 'd MMM yyyy')}
-                    </span>
-                  </div>
-                  {canManage && (
-                    <div className="flex items-center gap-1 shrink-0">
+                    </div>
+                    {canManage && (
                       <button onClick={() => denyPasswordReset(u.id)}
-                        className="p-1.5 text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded transition-colors"
-                        title="Deny">
+                        className="p-1.5 text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded transition-colors shrink-0"
+                        title="Deny — dismiss request">
                         <X size={14} />
                       </button>
-                      <button onClick={() => approvePasswordReset(u.id)} disabled={pwLoading[u.id]}
-                        className="p-1.5 text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors disabled:opacity-40"
-                        title="Approve — set password to submitted code">
-                        {pwLoading[u.id] ? <span className="text-xs">…</span> : <UserCheck size={14} />}
+                    )}
+                  </div>
+                  {canManage && (
+                    <div className="px-2.5 pb-2.5 flex gap-2 items-start">
+                      <div className="relative flex-1">
+                        <KeyRound size={12} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
+                        <input
+                          type="password"
+                          value={pwInput[u.id] ?? ''}
+                          onChange={e => setPwInput(p => ({ ...p, [u.id]: e.target.value }))}
+                          placeholder="Set new password (min 6)"
+                          className="w-full rounded-lg pl-8 pr-3 py-2 text-xs text-slate-300 border outline-none focus:border-indigo-500 transition-colors"
+                          style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const pw = pwInput[u.id] ?? ''
+                          if (!pw || pw.length < 6) { setPwMsg(m => ({ ...m, [u.id]: { text: 'Min 6 chars.', ok: false } })); return }
+                          setPwLoading(l => ({ ...l, [u.id]: true }))
+                          const { error } = await supabase.rpc('admin_reset_password', { target_id: u.id, new_password: pw })
+                          setPwLoading(l => ({ ...l, [u.id]: false }))
+                          if (error) { setPwMsg(m => ({ ...m, [u.id]: { text: 'Reset failed.', ok: false } })) }
+                          else { setPwResetRequests(r => r.filter(x => x.id !== u.id)); setPwInput(p => ({ ...p, [u.id]: '' })) }
+                        }}
+                        disabled={pwLoading[u.id]}
+                        className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50 shrink-0"
+                        style={{ background: '#6366f1' }}>
+                        {pwLoading[u.id] ? '…' : 'Set & Approve'}
                       </button>
                     </div>
                   )}
                   {pwMsg[u.id]?.text && (
-                    <p className={`text-xs ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
+                    <p className={`text-xs px-2.5 pb-2 ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
                   )}
                 </div>
               ))}
