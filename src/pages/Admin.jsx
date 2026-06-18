@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound } from 'lucide-react'
+import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound, Shield } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -81,6 +81,16 @@ export default function Admin() {
   // Confirm revoke
   const [confirmRevoke, setConfirmRevoke] = useState(null)
 
+  // Security / Ban list
+  const [banList, setBanList] = useState([])
+  const [banForm, setBanForm] = useState({ type: 'email', value: '', reason: '' })
+  const [banLoading, setBanLoading] = useState(false)
+  const [banMsg, setBanMsg] = useState({ text: '', ok: false })
+
+  // Login history per user
+  const [loginHistory, setLoginHistory] = useState({})
+  const [loginHistoryLoading, setLoginHistoryLoading] = useState({})
+
   useEffect(() => {
     supabase.from('users').select('id, user_code, display_name, email, role, status, created_at').neq('status', 'pending').order('user_code')
       .then(({ data }) => setAppUsers(data ?? []))
@@ -103,6 +113,11 @@ export default function Admin() {
       .not('password_reset_requested_at', 'is', null)
       .order('password_reset_requested_at')
       .then(({ data }) => setPwResetRequests(data ?? []))
+    supabase.from('ban_list')
+      .select('id, type, value, reason, banned_by, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setBanList(data ?? []))
   }, [])
 
   const approveUser = async (userId) => {
@@ -243,6 +258,41 @@ export default function Admin() {
       setPwInput(p => ({ ...p, [userId]: '' }))
       setTimeout(() => setPwMsg(m => ({ ...m, [userId]: { text: '', ok: false } })), 4000)
     }
+  }
+
+  const addBan = async (e) => {
+    e.preventDefault()
+    if (!banForm.value.trim()) return
+    setBanLoading(true)
+    setBanMsg({ text: '', ok: false })
+    const { error } = await supabase.rpc('add_ban', {
+      p_type: banForm.type,
+      p_value: banForm.value.trim(),
+      p_reason: banForm.reason.trim() || null,
+    })
+    setBanLoading(false)
+    if (error) { setBanMsg({ text: `Error: ${error.message}`, ok: false }); return }
+    const { data } = await supabase.from('ban_list')
+      .select('id, type, value, reason, banned_by, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+    setBanList(data ?? [])
+    setBanMsg({ text: 'Ban added.', ok: true })
+    setBanForm(f => ({ ...f, value: '', reason: '' }))
+    setTimeout(() => setBanMsg({ text: '', ok: false }), 3000)
+  }
+
+  const removeBan = async (banId) => {
+    const { error } = await supabase.rpc('remove_ban', { p_id: banId })
+    if (error) { alert(`Failed: ${error.message}`); return }
+    setBanList(b => b.filter(x => x.id !== banId))
+  }
+
+  const loadLoginHistory = async (userId) => {
+    setLoginHistoryLoading(l => ({ ...l, [userId]: true }))
+    const { data } = await supabase.rpc('get_user_login_history', { p_user_id: userId })
+    setLoginHistoryLoading(l => ({ ...l, [userId]: false }))
+    setLoginHistory(h => ({ ...h, [userId]: data ?? [] }))
   }
 
   const pendingCount = pendingUsers.length + deletionRequests.length + pwResetRequests.length
@@ -693,6 +743,35 @@ export default function Admin() {
                         <p className={`text-xs mt-1.5 ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
                       )}
                     </div>
+
+                    {/* Login history */}
+                    <div className="pt-2 border-t" style={{ borderColor: '#2a2d3a' }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs text-slate-500">Login History</label>
+                        <button
+                          onClick={() => loadLoginHistory(u.id)}
+                          disabled={loginHistoryLoading[u.id]}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50">
+                          {loginHistoryLoading[u.id] ? 'Loading…' : (loginHistory[u.id] ? 'Refresh' : 'Load')}
+                        </button>
+                      </div>
+                      {loginHistory[u.id] && (
+                        loginHistory[u.id].length === 0 ? (
+                          <p className="text-xs text-slate-600">No login events recorded.</p>
+                        ) : (
+                          <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
+                            {loginHistory[u.id].map(ev => (
+                              <div key={ev.id} className="flex items-center gap-3 text-xs px-2 py-1 rounded"
+                                style={{ background: '#0a0c12' }}>
+                                <span className="font-mono text-slate-300 shrink-0">{ev.ip_address ?? '—'}</span>
+                                <span className="text-slate-600 shrink-0">{ev.created_at && format(new Date(ev.created_at), 'd MMM yyyy HH:mm')}</span>
+                                <span className="text-slate-700 truncate text-[10px]">{ev.user_agent ?? ''}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -700,6 +779,87 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* Security / Ban List */}
+      {canManage && (
+        <div className="rounded-xl p-4 border mt-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Shield size={13} className="text-red-400" />
+            <SectionTitle>Security · Ban List</SectionTitle>
+          </div>
+
+          {/* Add ban form */}
+          <form onSubmit={addBan} className="flex flex-wrap gap-2 mb-3 items-end">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Type</label>
+              <select
+                value={banForm.type}
+                onChange={e => setBanForm(f => ({ ...f, type: e.target.value }))}
+                className={selectClass} style={selectStyle}>
+                <option value="email">Email</option>
+                <option value="ip">IP Address</option>
+                <option value="user">User ID</option>
+              </select>
+            </div>
+            <div className="flex-1 min-w-36">
+              <label className="text-xs text-slate-500 mb-1 block">Value</label>
+              <input
+                value={banForm.value}
+                onChange={e => setBanForm(f => ({ ...f, value: e.target.value }))}
+                placeholder={banForm.type === 'ip' ? '192.168.1.1' : banForm.type === 'email' ? 'user@example.com' : 'uuid…'}
+                className="w-full rounded-lg px-3 py-1.5 text-xs text-slate-300 border outline-none focus:border-red-500 transition-colors"
+                style={{ background: '#0f1117', borderColor: '#2a2d3a' }} />
+            </div>
+            <div className="flex-1 min-w-36">
+              <label className="text-xs text-slate-500 mb-1 block">Reason <span className="text-slate-600">(optional)</span></label>
+              <input
+                value={banForm.reason}
+                onChange={e => setBanForm(f => ({ ...f, reason: e.target.value }))}
+                placeholder="e.g. spam, abuse"
+                className="w-full rounded-lg px-3 py-1.5 text-xs text-slate-300 border outline-none focus:border-red-500 transition-colors"
+                style={{ background: '#0f1117', borderColor: '#2a2d3a' }} />
+            </div>
+            <button type="submit" disabled={banLoading || !banForm.value.trim()}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50 shrink-0"
+              style={{ background: '#ef4444' }}>
+              {banLoading ? '…' : 'Add Ban'}
+            </button>
+          </form>
+          {banMsg.text && (
+            <p className={`text-xs mb-3 ${banMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{banMsg.text}</p>
+          )}
+
+          {/* Active bans */}
+          {banList.length === 0 ? (
+            <p className="text-xs text-slate-600">No active bans.</p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {banList.map(b => (
+                <div key={b.id} className="flex items-center justify-between gap-2 p-2 rounded-lg"
+                  style={{ background: '#0f1117' }}>
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0"
+                      style={{
+                        background: b.type === 'ip' ? 'rgba(239,68,68,0.12)' : b.type === 'email' ? 'rgba(234,179,8,0.12)' : 'rgba(99,102,241,0.12)',
+                        color: b.type === 'ip' ? '#f87171' : b.type === 'email' ? '#eab308' : '#818cf8',
+                      }}>
+                      {b.type.toUpperCase()}
+                    </span>
+                    <span className="text-xs font-mono text-slate-300 truncate">{b.value}</span>
+                    {b.reason && <span className="text-xs text-slate-600 truncate">— {b.reason}</span>}
+                    <span className="text-xs text-slate-600 shrink-0">{b.created_at && format(new Date(b.created_at), 'd MMM yyyy')}</span>
+                  </div>
+                  <button onClick={() => removeBan(b.id)}
+                    className="p-1 text-slate-600 hover:text-red-400 transition-colors shrink-0"
+                    title="Remove ban">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!confirmRevoke}

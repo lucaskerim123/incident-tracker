@@ -58,6 +58,14 @@ export function AuthProvider({ children }) {
       await supabase.auth.signOut()
       return { data: null, error: { message: 'Account has been blocked.' } }
     }
+    // Non-blocking: log IP + user agent for this login event
+    ;(async () => {
+      try {
+        const res = await fetch('https://api64.ipify.org?format=json')
+        const { ip } = await res.json()
+        await supabase.rpc('log_login_event', { p_ip: ip, p_user_agent: navigator.userAgent })
+      } catch { /* ignore — login still succeeds */ }
+    })()
     return { data, error: null }
   }
 
