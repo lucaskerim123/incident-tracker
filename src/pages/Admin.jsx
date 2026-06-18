@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search } from 'lucide-react'
+import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -32,6 +32,13 @@ function TypeBadge({ type }) {
       </span>
     )
   }
+  if (type === 'pwreset') {
+    return (
+      <span style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8', padding: '2px 8px', borderRadius: 5, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
+        Pwd Reset
+      </span>
+    )
+  }
   return (
     <span style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', padding: '2px 8px', borderRadius: 5, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
       Deletion Req
@@ -47,6 +54,7 @@ export default function Admin() {
   const [appUsers, setAppUsers] = useState([])
   const [pendingUsers, setPendingUsers] = useState([])
   const [deletionRequests, setDeletionRequests] = useState([])
+  const [pwResetRequests, setPwResetRequests] = useState([])
   const [pendingRoles, setPendingRoles] = useState({})
 
   // Create user
@@ -89,6 +97,12 @@ export default function Admin() {
       .not('deletion_requested_at', 'is', null)
       .order('deletion_requested_at')
       .then(({ data }) => setDeletionRequests(data ?? []))
+    supabase.from('users')
+      .select('id, user_code, role, password_reset_requested_at')
+      .eq('status', 'active')
+      .not('password_reset_requested_at', 'is', null)
+      .order('password_reset_requested_at')
+      .then(({ data }) => setPwResetRequests(data ?? []))
   }, [])
 
   const approveUser = async (userId) => {
@@ -119,6 +133,30 @@ export default function Admin() {
   const rejectDeletion = async (userId) => {
     await supabase.from('users').update({ deletion_requested_at: null }).eq('id', userId)
     setDeletionRequests(d => d.filter(x => x.id !== userId))
+  }
+
+  const resolvePwReset = async (userId) => {
+    const pw = pwInput[userId] ?? ''
+    if (!pw || pw.length < 6) {
+      setPwMsg(m => ({ ...m, [userId]: { text: 'Min 6 characters.', ok: false } }))
+      return
+    }
+    setPwLoading(l => ({ ...l, [userId]: true }))
+    setPwMsg(m => ({ ...m, [userId]: { text: '', ok: false } }))
+    const { error } = await supabase.rpc('admin_reset_password', { target_id: userId, new_password: pw })
+    setPwLoading(l => ({ ...l, [userId]: false }))
+    if (error) {
+      setPwMsg(m => ({ ...m, [userId]: { text: 'Reset failed.', ok: false } }))
+    } else {
+      setPwResetRequests(r => r.filter(x => x.id !== userId))
+      setPwInput(p => ({ ...p, [userId]: '' }))
+      setPwMsg(m => ({ ...m, [userId]: { text: '', ok: false } }))
+    }
+  }
+
+  const dismissPwReset = async (userId) => {
+    await supabase.from('users').update({ password_reset_requested_at: null }).eq('id', userId)
+    setPwResetRequests(r => r.filter(x => x.id !== userId))
   }
 
   const createUser = async (e) => {
@@ -195,7 +233,7 @@ export default function Admin() {
     }
   }
 
-  const pendingCount = pendingUsers.length + deletionRequests.length
+  const pendingCount = pendingUsers.length + deletionRequests.length + pwResetRequests.length
 
   const filtered = appUsers
     .filter(u => roleFilter ? u.role === roleFilter : true)
@@ -321,6 +359,53 @@ export default function Admin() {
                         </button>
                       )}
                     </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Password reset requests */}
+              {pwResetRequests.map(u => (
+                <div key={`pwr-${u.id}`} className="rounded-lg overflow-hidden" style={{ background: '#0f1117' }}>
+                  <div className="flex items-center justify-between gap-2 p-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <TypeBadge type="pwreset" />
+                      <RoleBadge role={u.role} />
+                      <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
+                      <span className="text-xs text-slate-600">
+                        {u.password_reset_requested_at && format(new Date(u.password_reset_requested_at), 'd MMM yyyy')}
+                      </span>
+                    </div>
+                    {canManage && (
+                      <button onClick={() => dismissPwReset(u.id)}
+                        className="p-1.5 text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded transition-colors"
+                        title="Dismiss">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {canManage && (
+                    <div className="px-2.5 pb-2.5 flex gap-2 items-start">
+                      <div className="relative flex-1">
+                        <KeyRound size={12} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
+                        <input
+                          type="password"
+                          value={pwInput[u.id] ?? ''}
+                          onChange={e => setPwInput(p => ({ ...p, [u.id]: e.target.value }))}
+                          placeholder="Set new password (min 6)"
+                          className="w-full rounded-lg pl-8 pr-3 py-2 text-xs text-slate-300 border outline-none focus:border-indigo-500 transition-colors"
+                          style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
+                      </div>
+                      <button
+                        onClick={() => resolvePwReset(u.id)}
+                        disabled={pwLoading[u.id]}
+                        className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50 shrink-0"
+                        style={{ background: '#6366f1' }}>
+                        {pwLoading[u.id] ? '…' : 'Set & Resolve'}
+                      </button>
+                    </div>
+                  )}
+                  {pwMsg[u.id]?.text && (
+                    <p className={`text-xs px-2.5 pb-2 ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
                   )}
                 </div>
               ))}
