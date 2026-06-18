@@ -23,10 +23,12 @@ export function AuthProvider({ children }) {
       else setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
-      if (session) fetchRole(session.user.id)
-      else {
+      if (session) {
+        if (event === 'SIGNED_IN') setLoading(true)
+        fetchRole(session.user.id)
+      } else {
         setUserRole(null); setUserCode(null); setUserStatus(null); setLoading(false)
         setSuspensionReason(null); setSuspensionExpiresAt(null)
         setBanReason(null); setBanExpiresAt(null)

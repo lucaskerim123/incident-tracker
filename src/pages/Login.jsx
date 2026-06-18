@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Shield, Mail, User, Lock, Eye, EyeOff, Clock, KeyRound, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function Login() {
   const { session, signInWithEmail } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState('login')
 
   // Sign in
@@ -47,6 +48,8 @@ export default function Login() {
       } else {
         setError('Invalid email or password.')
       }
+    } else {
+      navigate('/', { replace: true })
     }
   }
 
