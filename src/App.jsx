@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { usePermissions } from './hooks/usePermissions'
 import Layout from './components/Layout'
 import PendingApproval from './components/PendingApproval'
+import Suspended from './components/Suspended'
+import Banned from './components/Banned'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Incidents from './pages/Incidents'
@@ -30,6 +32,8 @@ function RequireAuth({ children }) {
   )
   if (!session) return <Navigate to="/login" replace />
   if (userStatus === 'pending') return <PendingApproval />
+  if (userStatus === 'suspended') return <Suspended />
+  if (userStatus === 'blocked') return <Banned />
   return children
 }
 

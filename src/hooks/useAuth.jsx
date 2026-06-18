@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
   const [displayName, setDisplayName] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const [suspensionReason, setSuspensionReason] = useState(null)
+  const [suspensionExpiresAt, setSuspensionExpiresAt] = useState(null)
+  const [banReason, setBanReason] = useState(null)
+  const [banExpiresAt, setBanExpiresAt] = useState(null)
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -21,40 +26,90 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session) fetchRole(session.user.id)
-      else { setUserRole(null); setUserCode(null); setUserStatus(null); setLoading(false) }
+      else {
+        setUserRole(null); setUserCode(null); setUserStatus(null); setLoading(false)
+        setSuspensionReason(null); setSuspensionExpiresAt(null)
+        setBanReason(null); setBanExpiresAt(null)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
+  // Realtime: detect live status changes (e.g. admin suspends a logged-in user)
+  useEffect(() => {
+    if (!session?.user?.id) return
+    const userId = session.user.id
+
+    const channel = supabase
+      .channel(`user-status-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${userId}` },
+        (payload) => {
+          const u = payload.new
+          const now = new Date()
+
+          // If expiry has already passed, let fetchRole clean up the DB too
+          if (u.status === 'suspended' && u.suspension_expires_at && new Date(u.suspension_expires_at) < now) {
+            fetchRole(userId)
+            return
+          }
+          if (u.status === 'blocked' && u.ban_expires_at && new Date(u.ban_expires_at) < now) {
+            fetchRole(userId)
+            return
+          }
+
+          setUserStatus(u.status ?? null)
+          setSuspensionReason(u.suspension_reason ?? null)
+          setSuspensionExpiresAt(u.suspension_expires_at ?? null)
+          setBanReason(u.ban_reason ?? null)
+          setBanExpiresAt(u.ban_expires_at ?? null)
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [session?.user?.id])
+
   async function fetchRole(userId) {
+    // Auto-clear expired suspension/ban at DB level, get effective status
+    await supabase.rpc('check_and_clear_expired_restrictions', { target_id: userId })
+
     const { data } = await supabase
       .from('users')
-      .select('role, user_code, status, display_name')
+      .select('role, user_code, status, display_name, suspension_reason, suspension_expires_at, ban_reason, ban_expires_at')
       .eq('id', userId)
       .single()
+
     setUserRole(data?.role ?? 'viewer')
     setUserCode(data?.user_code ?? null)
     setUserStatus(data?.status ?? 'pending')
     setDisplayName(data?.display_name ?? null)
+    setSuspensionReason(data?.suspension_reason ?? null)
+    setSuspensionExpiresAt(data?.suspension_expires_at ?? null)
+    setBanReason(data?.ban_reason ?? null)
+    setBanExpiresAt(data?.ban_expires_at ?? null)
     setLoading(false)
   }
 
   const signInWithEmail = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { data: null, error }
-    const { data: userData } = await supabase.from('users')
-      .select('status').eq('id', data.user.id).single()
-    const status = userData?.status
-    if (status === 'pending') {
+
+    // Auto-clear expiry and get effective status
+    const { data: effectiveStatus } = await supabase
+      .rpc('check_and_clear_expired_restrictions', { target_id: data.user.id })
+
+    if (effectiveStatus === 'pending') {
       await supabase.auth.signOut()
       return { data: null, error: { message: 'Account is pending admin approval.' } }
     }
-    if (status === 'suspended') {
+    if (effectiveStatus === 'suspended') {
       await supabase.auth.signOut()
       return { data: null, error: { message: 'Account suspended. Contact an admin.' } }
     }
-    if (status === 'blocked') {
+    if (effectiveStatus === 'blocked') {
       await supabase.auth.signOut()
       return { data: null, error: { message: 'Account has been blocked.' } }
     }
@@ -77,6 +132,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       session, user: session?.user, userRole, userCode, userStatus, displayName, loading,
+      suspensionReason, suspensionExpiresAt, banReason, banExpiresAt,
       signInWithEmail, signOut, updatePasscode,
     }}>
       {children}

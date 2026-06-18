@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound, Shield } from 'lucide-react'
+import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound, Shield, Ban, ShieldOff } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -81,7 +81,18 @@ export default function Admin() {
   // Confirm revoke
   const [confirmRevoke, setConfirmRevoke] = useState(null)
 
-  // Security / Ban list
+  // Suspensions & Bans section
+  const [sbTab, setSbTab] = useState('suspend')
+  const [suspendedUsers, setSuspendedUsers] = useState([])
+  const [bannedUsers, setBannedUsers] = useState([])
+  const [suspendForm, setSuspendForm] = useState({ userId: '', reason: '', durationPreset: '7d', customDate: '' })
+  const [suspendLoading, setSuspendLoading] = useState(false)
+  const [suspendMsg, setSuspendMsg] = useState({ text: '', ok: false })
+  const [banUserForm, setBanUserForm] = useState({ userId: '', reason: '', permanent: true, customDate: '' })
+  const [banUserLoading, setBanUserLoading] = useState(false)
+  const [banUserMsg, setBanUserMsg] = useState({ text: '', ok: false })
+
+  // Security / Ban list (IP/email/user bans)
   const [banList, setBanList] = useState([])
   const [banForm, setBanForm] = useState({ type: 'email', value: '', reason: '' })
   const [banLoading, setBanLoading] = useState(false)
@@ -118,6 +129,14 @@ export default function Admin() {
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .then(({ data }) => setBanList(data ?? []))
+    supabase.from('users')
+      .select('id, user_code, display_name, email, role, suspension_reason, suspension_expires_at')
+      .eq('status', 'suspended').order('user_code')
+      .then(({ data }) => setSuspendedUsers(data ?? []))
+    supabase.from('users')
+      .select('id, user_code, display_name, email, role, ban_reason, ban_expires_at')
+      .eq('status', 'blocked').order('user_code')
+      .then(({ data }) => setBannedUsers(data ?? []))
   }, [])
 
   const approveUser = async (userId) => {
@@ -203,7 +222,7 @@ export default function Admin() {
 
   const openEdit = (u) => {
     setExpandedUser(u.id)
-    setEditForm({ displayName: u.display_name ?? '', email: u.email ?? '', role: u.role, status: u.status ?? 'active' })
+    setEditForm({ displayName: u.display_name ?? '', email: u.email ?? '', role: u.role })
     setEditMsg({})
   }
 
@@ -217,7 +236,7 @@ export default function Admin() {
     const newEmail = editForm.email.trim().toLowerCase()
     setEditLoading(true)
     const { error } = await supabase.from('users')
-      .update({ display_name: editForm.displayName.trim() || null, role: editForm.role, status: editForm.status })
+      .update({ display_name: editForm.displayName.trim() || null, role: editForm.role })
       .eq('id', userId)
     if (error) {
       setEditLoading(false)
@@ -234,7 +253,7 @@ export default function Admin() {
     }
     setEditLoading(false)
     setAppUsers(u => u.map(x => x.id === userId
-      ? { ...x, display_name: editForm.displayName.trim() || null, role: editForm.role, status: editForm.status, email: newEmail || x.email }
+      ? { ...x, display_name: editForm.displayName.trim() || null, role: editForm.role, email: newEmail || x.email }
       : x))
     setExpandedUser(null)
     setEditMsg(m => ({ ...m, [userId]: { text: 'Saved.', ok: true } }))
@@ -295,6 +314,76 @@ export default function Admin() {
     setLoginHistory(h => ({ ...h, [userId]: data ?? [] }))
   }
 
+  const doSuspend = async (e) => {
+    e.preventDefault()
+    if (!suspendForm.userId) return
+    setSuspendLoading(true)
+    setSuspendMsg({ text: '', ok: false })
+    let expiresAt = null
+    if (suspendForm.durationPreset !== 'indefinite') {
+      if (suspendForm.durationPreset === 'custom') {
+        expiresAt = suspendForm.customDate || null
+      } else {
+        const days = { '1d': 1, '3d': 3, '7d': 7, '14d': 14, '30d': 30 }[suspendForm.durationPreset]
+        const d = new Date(); d.setDate(d.getDate() + days)
+        expiresAt = d.toISOString()
+      }
+    }
+    const { error } = await supabase.rpc('suspend_user', {
+      target_id: suspendForm.userId,
+      reason: suspendForm.reason.trim() || null,
+      expires_at: expiresAt,
+    })
+    setSuspendLoading(false)
+    if (error) { setSuspendMsg({ text: `Error: ${error.message}`, ok: false }); return }
+    const target = appUsers.find(u => u.id === suspendForm.userId)
+    if (target) {
+      setAppUsers(u => u.map(x => x.id === suspendForm.userId ? { ...x, status: 'suspended' } : x))
+      setSuspendedUsers(s => [...s, { ...target, suspension_reason: suspendForm.reason.trim() || null, suspension_expires_at: expiresAt }])
+    }
+    setSuspendMsg({ text: 'User suspended.', ok: true })
+    setSuspendForm({ userId: '', reason: '', durationPreset: '7d', customDate: '' })
+    setTimeout(() => setSuspendMsg({ text: '', ok: false }), 3000)
+  }
+
+  const doUnsuspend = async (targetId) => {
+    const { error } = await supabase.rpc('unsuspend_user', { target_id: targetId })
+    if (error) { alert(`Failed: ${error.message}`); return }
+    setSuspendedUsers(s => s.filter(x => x.id !== targetId))
+    setAppUsers(u => u.map(x => x.id === targetId ? { ...x, status: 'active' } : x))
+  }
+
+  const doBanUser = async (e) => {
+    e.preventDefault()
+    if (!banUserForm.userId) return
+    setBanUserLoading(true)
+    setBanUserMsg({ text: '', ok: false })
+    const expiresAt = banUserForm.permanent ? null : (banUserForm.customDate || null)
+    const { error } = await supabase.rpc('ban_user', {
+      target_id: banUserForm.userId,
+      reason: banUserForm.reason.trim() || null,
+      expires_at: expiresAt,
+    })
+    setBanUserLoading(false)
+    if (error) { setBanUserMsg({ text: `Error: ${error.message}`, ok: false }); return }
+    setSuspendedUsers(s => s.filter(x => x.id !== banUserForm.userId))
+    const target = appUsers.find(u => u.id === banUserForm.userId)
+    if (target) {
+      setAppUsers(u => u.map(x => x.id === banUserForm.userId ? { ...x, status: 'blocked' } : x))
+      setBannedUsers(b => [...b, { ...target, ban_reason: banUserForm.reason.trim() || null, ban_expires_at: expiresAt }])
+    }
+    setBanUserMsg({ text: 'User banned.', ok: true })
+    setBanUserForm({ userId: '', reason: '', permanent: true, customDate: '' })
+    setTimeout(() => setBanUserMsg({ text: '', ok: false }), 3000)
+  }
+
+  const doUnban = async (targetId) => {
+    const { error } = await supabase.rpc('unban_user', { target_id: targetId })
+    if (error) { alert(`Failed: ${error.message}`); return }
+    setBannedUsers(b => b.filter(x => x.id !== targetId))
+    setAppUsers(u => u.map(x => x.id === targetId ? { ...x, status: 'active' } : x))
+  }
+
   const pendingCount = pendingUsers.length + deletionRequests.length + pwResetRequests.length
 
   const activeCount = appUsers.filter(u => u.status === 'active').length
@@ -308,6 +397,11 @@ export default function Admin() {
         (u.display_name ?? '').toLowerCase().includes(search.toLowerCase())
       : true
     )
+
+  // Non-admin active users eligible for suspension
+  const eligibleForSuspend = appUsers.filter(u => u.role !== 'admin' && u.status === 'active')
+  // Non-admin active or suspended users eligible for ban
+  const eligibleForBan = appUsers.filter(u => u.role !== 'admin' && (u.status === 'active' || u.status === 'suspended'))
 
   return (
     <div className="p-4 max-w-2xl mx-auto pb-8">
@@ -687,18 +781,6 @@ export default function Admin() {
                           {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </select>
                       </div>
-                      <div>
-                        <label className="text-xs text-slate-500 mb-1 block">Status</label>
-                        <select
-                          value={editForm.status}
-                          onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
-                          className={`${inputClass} text-xs`} style={inputStyle}
-                          disabled={u.id === user?.id}>
-                          <option value="active">Active</option>
-                          <option value="suspended">Suspended</option>
-                          <option value="blocked">Blocked</option>
-                        </select>
-                      </div>
                       <div className="flex items-end">
                         <div className="flex gap-2">
                           <button onClick={() => saveUserEdit(u.id)} disabled={editLoading}
@@ -779,6 +861,252 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* Suspensions & Bans */}
+      {canManage && (
+        <div className="rounded-xl border mt-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b" style={{ borderColor: '#2a2d3a' }}>
+            <Ban size={13} className="text-amber-400" />
+            <SectionTitle>Suspensions &amp; Bans</SectionTitle>
+          </div>
+
+          {/* Tabs — Ban tab only for admins */}
+          <div className="flex border-b px-4 gap-1" style={{ borderColor: '#2a2d3a' }}>
+            {[
+              ['suspend', 'Suspend a User'],
+              ...(isAdmin ? [['ban', 'Ban a User']] : []),
+            ].map(([key, label]) => (
+              <button key={key} onClick={() => setSbTab(key)}
+                className={`py-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+                  sbTab === key
+                    ? 'border-indigo-500 text-indigo-400'
+                    : 'border-transparent text-slate-500 hover:text-slate-300'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-4">
+            {/* ── Suspend Tab ── */}
+            {sbTab === 'suspend' && (
+              <div className="flex flex-col gap-4">
+                <form onSubmit={doSuspend} className="flex flex-col gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">User</label>
+                    <select
+                      value={suspendForm.userId}
+                      onChange={e => setSuspendForm(f => ({ ...f, userId: e.target.value }))}
+                      className={`${inputClass} text-xs`} style={inputStyle} required>
+                      <option value="">Select a user…</option>
+                      {eligibleForSuspend.map(u => (
+                        <option key={u.id} value={u.id}>
+                          #{u.user_code} — {u.display_name ?? u.email ?? 'No name'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Reason <span className="text-slate-600">(optional)</span></label>
+                    <input
+                      value={suspendForm.reason}
+                      onChange={e => setSuspendForm(f => ({ ...f, reason: e.target.value }))}
+                      placeholder="e.g. spam, policy violation"
+                      className={inputClass} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-2 block">Duration</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { key: '1d', label: '1 day' },
+                        { key: '3d', label: '3 days' },
+                        { key: '7d', label: '7 days' },
+                        { key: '14d', label: '14 days' },
+                        { key: '30d', label: '30 days' },
+                        { key: 'indefinite', label: 'Indefinite' },
+                        { key: 'custom', label: 'Custom…' },
+                      ].map(({ key, label }) => (
+                        <button key={key} type="button"
+                          onClick={() => setSuspendForm(f => ({ ...f, durationPreset: key }))}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                          style={suspendForm.durationPreset === key
+                            ? { background: 'rgba(234,179,8,0.2)', color: '#eab308' }
+                            : { background: '#0f1117', color: '#64748b' }
+                          }>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {suspendForm.durationPreset === 'custom' && (
+                      <input
+                        type="datetime-local"
+                        value={suspendForm.customDate}
+                        onChange={e => setSuspendForm(f => ({ ...f, customDate: e.target.value }))}
+                        className={`mt-2 ${inputClass} text-xs`} style={inputStyle} />
+                    )}
+                  </div>
+                  {suspendMsg.text && (
+                    <p className={`text-xs ${suspendMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{suspendMsg.text}</p>
+                  )}
+                  <div>
+                    <button type="submit" disabled={suspendLoading || !suspendForm.userId}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+                      style={{ background: 'rgba(234,179,8,0.2)', color: '#eab308' }}>
+                      {suspendLoading ? 'Suspending…' : 'Suspend User'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Currently suspended list */}
+                {suspendedUsers.length > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">
+                      Currently Suspended ({suspendedUsers.length})
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {suspendedUsers.map(u => (
+                        <div key={u.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg"
+                          style={{ background: '#0f1117' }}>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-400">#{u.user_code}</span>
+                              <span className="text-xs text-slate-300 truncate">{u.display_name ?? u.email ?? 'No name'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {u.suspension_reason
+                                ? <span className="text-xs text-slate-600">"{u.suspension_reason}"</span>
+                                : <span className="text-xs text-slate-700 italic">No reason</span>
+                              }
+                              <span className="text-xs font-medium" style={{ color: '#eab308' }}>
+                                {u.suspension_expires_at
+                                  ? `Until ${format(new Date(u.suspension_expires_at), 'd MMM yyyy HH:mm')}`
+                                  : 'Indefinitely'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => doUnsuspend(u.id)}
+                              className="px-2 py-1 rounded text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                              Unsuspend
+                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => { setSbTab('ban'); setBanUserForm(f => ({ ...f, userId: u.id })) }}
+                                className="px-2 py-1 rounded text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors">
+                                → Ban
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Ban Tab (admin only) ── */}
+            {sbTab === 'ban' && isAdmin && (
+              <div className="flex flex-col gap-4">
+                <form onSubmit={doBanUser} className="flex flex-col gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">User</label>
+                    <select
+                      value={banUserForm.userId}
+                      onChange={e => setBanUserForm(f => ({ ...f, userId: e.target.value }))}
+                      className={`${inputClass} text-xs`} style={inputStyle} required>
+                      <option value="">Select a user…</option>
+                      {eligibleForBan.map(u => (
+                        <option key={u.id} value={u.id}>
+                          #{u.user_code} — {u.display_name ?? u.email ?? 'No name'}{u.status === 'suspended' ? ' (suspended)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Reason <span className="text-slate-600">(optional)</span></label>
+                    <input
+                      value={banUserForm.reason}
+                      onChange={e => setBanUserForm(f => ({ ...f, reason: e.target.value }))}
+                      placeholder="e.g. abuse, repeated violations"
+                      className={inputClass} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-2 block">Duration</label>
+                    <div className="flex gap-1.5">
+                      {[{ permanent: true, label: 'Permanent' }, { permanent: false, label: 'Custom date…' }].map(({ permanent, label }) => (
+                        <button key={String(permanent)} type="button"
+                          onClick={() => setBanUserForm(f => ({ ...f, permanent }))}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                          style={banUserForm.permanent === permanent
+                            ? { background: 'rgba(239,68,68,0.2)', color: '#f87171' }
+                            : { background: '#0f1117', color: '#64748b' }
+                          }>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {!banUserForm.permanent && (
+                      <input
+                        type="datetime-local"
+                        value={banUserForm.customDate}
+                        onChange={e => setBanUserForm(f => ({ ...f, customDate: e.target.value }))}
+                        className={`mt-2 ${inputClass} text-xs`} style={inputStyle} />
+                    )}
+                  </div>
+                  {banUserMsg.text && (
+                    <p className={`text-xs ${banUserMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{banUserMsg.text}</p>
+                  )}
+                  <div>
+                    <button type="submit" disabled={banUserLoading || !banUserForm.userId}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                      style={{ background: '#ef4444' }}>
+                      {banUserLoading ? 'Banning…' : 'Ban User'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Currently banned list */}
+                {bannedUsers.length > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">
+                      Currently Banned ({bannedUsers.length})
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {bannedUsers.map(u => (
+                        <div key={u.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg"
+                          style={{ background: '#0f1117' }}>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-400">#{u.user_code}</span>
+                              <span className="text-xs text-slate-300 truncate">{u.display_name ?? u.email ?? 'No name'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {u.ban_reason
+                                ? <span className="text-xs text-slate-600">"{u.ban_reason}"</span>
+                                : <span className="text-xs text-slate-700 italic">No reason</span>
+                              }
+                              <span className="text-xs font-semibold text-red-400">
+                                {u.ban_expires_at
+                                  ? `Until ${format(new Date(u.ban_expires_at), 'd MMM yyyy HH:mm')}`
+                                  : 'Permanent'}
+                              </span>
+                            </div>
+                          </div>
+                          <button onClick={() => doUnban(u.id)}
+                            className="px-2 py-1 rounded text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition-colors shrink-0">
+                            Unban
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Security / Ban List */}
       {canManage && (
