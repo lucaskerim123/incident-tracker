@@ -150,16 +150,6 @@ export default function PersonDetail() {
     setOutgoing(o => o.filter(r => r.id !== relId))
   }
 
-  if (!can.viewSensitiveNotes) return (
-    <div className="p-4 max-w-2xl mx-auto text-center py-20">
-      <p className="text-sm text-slate-500">You don't have permission to view detailed profiles.</p>
-      <button onClick={() => navigate('/people')}
-        className="mt-4 text-sm text-indigo-400 hover:text-indigo-300">
-        ← Back to People
-      </button>
-    </div>
-  )
-
   if (loading) return (
     <div className="flex justify-center py-20">
       <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
