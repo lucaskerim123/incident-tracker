@@ -105,13 +105,9 @@ export function AuthProvider({ children }) {
       await supabase.auth.signOut()
       return { data: null, error: { message: 'Account is pending admin approval.' } }
     }
-    if (effectiveStatus === 'suspended') {
-      await supabase.auth.signOut()
-      return { data: null, error: { message: 'Account suspended. Contact an admin.' } }
-    }
-    if (effectiveStatus === 'blocked') {
-      await supabase.auth.signOut()
-      return { data: null, error: { message: 'Account has been blocked.' } }
+    if (effectiveStatus === 'suspended' || effectiveStatus === 'blocked') {
+      // Keep the session alive — RequireAuth will render Suspended/Banned with reason + expiry
+      return { data, error: null }
     }
     // Non-blocking: log IP + user agent for this login event
     ;(async () => {
