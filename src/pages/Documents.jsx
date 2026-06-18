@@ -197,7 +197,7 @@ function AddPanel({ cases, incidents, canRestrict, onAdded, onClose }) {
 
   const addGdrive = async () => {
     if (!form.title.trim() || !form.google_doc_id.trim()) { setError('Title and Google Doc ID are required.'); return }
-    const { data } = await supabase.from('documents').insert({
+    const { data, error: insertErr } = await supabase.from('documents').insert({
       user_id: user.id,
       title: form.title,
       google_doc_id: form.google_doc_id,
@@ -208,6 +208,7 @@ function AddPanel({ cases, incidents, canRestrict, onAdded, onClose }) {
       description: form.description || null,
       created_at: new Date().toISOString(),
     }).select().single()
+    if (insertErr) { setError(insertErr.message); return }
     if (data) { onAdded([data]); onClose() }
   }
 
@@ -396,7 +397,7 @@ export default function Documents() {
   const handleAdded = (newDocs) => setDocs(d => [...newDocs, ...d])
 
   const saveEdit = async (form) => {
-    const { data } = await supabase.from('documents')
+    const { data, error: updateErr } = await supabase.from('documents')
       .update({
         title: form.title,
         description: form.description || null,
@@ -407,6 +408,7 @@ export default function Documents() {
       })
       .eq('id', editingDoc.id)
       .select().single()
+    if (updateErr) { alert(updateErr.message); return }
     if (data) setDocs(d => d.map(x => x.id === editingDoc.id ? data : x))
     setEditingDoc(null)
   }

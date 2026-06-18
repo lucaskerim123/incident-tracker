@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { usePermissions } from './hooks/usePermissions'
 import Layout from './components/Layout'
 import PendingApproval from './components/PendingApproval'
+import Suspended from './components/Suspended'
+import Banned from './components/Banned'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Incidents from './pages/Incidents'
@@ -10,6 +12,7 @@ import IncidentDetail from './pages/IncidentDetail'
 import AddIncident from './pages/AddIncident'
 import EditIncident from './pages/EditIncident'
 import People from './pages/People'
+import PersonDetail from './pages/PersonDetail'
 import CaseStatus from './pages/CaseStatus'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
@@ -30,6 +33,8 @@ function RequireAuth({ children }) {
   )
   if (!session) return <Navigate to="/login" replace />
   if (userStatus === 'pending') return <PendingApproval />
+  if (userStatus === 'suspended') return <Suspended />
+  if (userStatus === 'blocked') return <Banned />
   return children
 }
 
@@ -44,6 +49,7 @@ function AppRoutes() {
         <Route path="incidents/:id" element={<IncidentDetail />} />
         <Route path="incidents/:id/edit" element={<EditIncident />} />
         <Route path="people" element={<People />} />
+        <Route path="people/:id" element={<PersonDetail />} />
         <Route path="cases" element={<CaseStatus />} />
         <Route path="documents" element={<Documents />} />
         <Route path="settings" element={<Settings />} />
