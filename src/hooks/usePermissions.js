@@ -15,7 +15,7 @@ const PERMISSIONS = {
   },
   lawyer: {
     view: true, add: false, edit: false, delete: false,
-    upload: true, managePeople: false, manageCases: false,
+    upload: false, managePeople: false, manageCases: false,
     manageUsers: false, inviteUsers: false, export: false, viewAdmin: false,
     canComment: true,
   },
