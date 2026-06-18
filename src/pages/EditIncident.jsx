@@ -2,24 +2,33 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Navigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
 import IncidentForm from '../components/IncidentForm'
 
 export default function EditIncident() {
   const { id } = useParams()
+  const { user } = useAuth()
   const { can } = usePermissions()
   const navigate = useNavigate()
   const [incident, setIncident] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fetchError, setFetchError] = useState(false)
+  const [cases, setCases] = useState([])
+  const [knownPeople, setKnownPeople] = useState([])
 
   useEffect(() => {
-    supabase.from('incidents').select('*').eq('id', id).single()
-      .then(({ data, error }) => {
-        if (error || !data) setFetchError(true)
-        else setIncident(data)
-      })
+    Promise.all([
+      supabase.from('incidents').select('*').eq('id', id).single(),
+      supabase.from('cases').select('id, charge, case_number').order('court_date'),
+      supabase.from('people').select('name').order('name'),
+    ]).then(([incidentRes, casesRes, peopleRes]) => {
+      if (incidentRes.error || !incidentRes.data) setFetchError(true)
+      else setIncident(incidentRes.data)
+      setCases(casesRes.data ?? [])
+      setKnownPeople((peopleRes.data ?? []).map(p => p.name))
+    })
   }, [id])
 
   if (!can.edit) return <Navigate to={`/incidents/${id}`} replace />
@@ -36,14 +45,29 @@ export default function EditIncident() {
     </div>
   )
 
+  const syncPeople = async (peopleInvolved) => {
+    const newNames = peopleInvolved.filter(
+      name => !knownPeople.some(k => k.toLowerCase() === name.toLowerCase())
+    )
+    for (const name of newNames) {
+      await supabase.from('people').insert({ name, user_id: user.id, status: 'awaiting_review' })
+    }
+  }
+
   const handleSubmit = async (form) => {
     setLoading(true); setError('')
-    const { error } = await supabase.from('incidents')
-      .update({ ...form, updated_at: new Date().toISOString() })
+    const { error: updateError } = await supabase.from('incidents')
+      .update({
+        ...form,
+        linked_case_id: form.linked_case_id || null,
+        incident_time: form.incident_time || null,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id)
+    if (updateError) { setLoading(false); setError(updateError.message); return }
+    await syncPeople(form.people_involved)
     setLoading(false)
-    if (error) setError(error.message)
-    else navigate(`/incidents/${id}`)
+    navigate(`/incidents/${id}`)
   }
 
   return (
@@ -60,7 +84,14 @@ export default function EditIncident() {
         </div>
       )}
       <div className="rounded-xl p-4 border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <IncidentForm initial={incident} onSubmit={handleSubmit} loading={loading} submitLabel="Update Incident" />
+        <IncidentForm
+          initial={incident}
+          onSubmit={handleSubmit}
+          loading={loading}
+          submitLabel="Update Incident"
+          cases={cases}
+          knownPeople={knownPeople}
+        />
       </div>
     </div>
   )

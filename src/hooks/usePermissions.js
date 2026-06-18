@@ -5,21 +5,25 @@ const PERMISSIONS = {
     view: true, add: true, edit: true, delete: true,
     upload: true, managePeople: true, manageCases: true,
     manageUsers: true, inviteUsers: true, export: true, viewAdmin: true,
+    canComment: true,
   },
   editor: {
-    view: true, add: true, edit: true, delete: true,
+    view: true, add: true, edit: true, delete: false,
     upload: true, managePeople: true, manageCases: true,
-    manageUsers: true, inviteUsers: false, export: true, viewAdmin: true,
+    manageUsers: false, inviteUsers: false, export: true, viewAdmin: true,
+    canComment: true,
   },
   lawyer: {
-    view: true, add: true, edit: false, delete: false,
+    view: true, add: false, edit: false, delete: false,
     upload: true, managePeople: false, manageCases: false,
     manageUsers: false, inviteUsers: false, export: false, viewAdmin: false,
+    canComment: true,
   },
   viewer: {
     view: true, add: false, edit: false, delete: false,
     upload: false, managePeople: false, manageCases: false,
     manageUsers: false, inviteUsers: false, export: false, viewAdmin: false,
+    canComment: false,
   },
 }
 

@@ -9,12 +9,20 @@ const STATUS_STYLES = {
   resolved:   { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
 }
 
+const SEVERITY_DOTS = {
+  low:      '#64748b',
+  medium:   '#eab308',
+  high:     '#f97316',
+  critical: '#ef4444',
+}
+
 const STATUS_CYCLE = { documented: 'pending', pending: 'resolved', resolved: 'documented' }
 
 export default function IncidentCard({ incident, onStatusChange }) {
   const navigate = useNavigate()
   const s = STATUS_STYLES[incident.status] ?? STATUS_STYLES.documented
   const people = incident.people_involved ?? []
+  const severityColor = SEVERITY_DOTS[incident.severity] ?? SEVERITY_DOTS.medium
 
   return (
     <button
@@ -37,6 +45,12 @@ export default function IncidentCard({ incident, onStatusChange }) {
             ) : (
               <span style={{ background: s.bg, color: s.text, padding: '2px 6px', fontSize: 11, borderRadius: 6, fontWeight: 600 }}>
                 {incident.status}
+              </span>
+            )}
+            {incident.severity && incident.severity !== 'medium' && (
+              <span className="flex items-center gap-1 text-xs" style={{ color: severityColor }}>
+                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: severityColor }} />
+                {incident.severity}
               </span>
             )}
             {incident.reference_number && (

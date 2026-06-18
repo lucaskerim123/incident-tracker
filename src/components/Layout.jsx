@@ -67,7 +67,7 @@ export default function Layout() {
         </nav>
 
         <div className="px-2 py-3 border-t" style={{ borderColor: '#2a2d3a' }}>
-          <Link to="/profile"
+          <Link to="/settings"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors w-full mb-0.5">
             <UserCircle size={18} />
             <span className="font-mono text-xs">#{userCode ?? '—'}</span>
@@ -92,7 +92,7 @@ export default function Layout() {
             <span className="font-semibold text-slate-100 text-sm">Incident Tracker</span>
           </div>
           <div className="flex items-center gap-1">
-            <Link to="/profile" className="text-slate-400 hover:text-slate-200 p-1">
+            <Link to="/settings" className="text-slate-400 hover:text-slate-200 p-1">
               <UserCircle size={18} />
             </Link>
             <button onClick={handleSignOut} className="text-slate-400 hover:text-red-400 p-1">

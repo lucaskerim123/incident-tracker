@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -12,19 +12,43 @@ export default function AddIncident() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [cases, setCases] = useState([])
+  const [knownPeople, setKnownPeople] = useState([])
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('cases').select('id, charge, case_number').order('court_date'),
+      supabase.from('people').select('name').order('name'),
+    ]).then(([casesRes, peopleRes]) => {
+      setCases(casesRes.data ?? [])
+      setKnownPeople((peopleRes.data ?? []).map(p => p.name))
+    })
+  }, [])
 
   if (!can.add) return <Navigate to="/incidents" replace />
 
+  const syncPeople = async (peopleInvolved) => {
+    const newNames = peopleInvolved.filter(
+      name => !knownPeople.some(k => k.toLowerCase() === name.toLowerCase())
+    )
+    for (const name of newNames) {
+      await supabase.from('people').insert({ name, user_id: user.id, status: 'awaiting_review' })
+    }
+  }
+
   const handleSubmit = async (form) => {
     setLoading(true); setError('')
-    const { error } = await supabase.from('incidents').insert({
+    const { error: insertError } = await supabase.from('incidents').insert({
       ...form,
+      linked_case_id: form.linked_case_id || null,
+      incident_time: form.incident_time || null,
       user_id: user.id,
       updated_at: new Date().toISOString(),
     })
+    if (insertError) { setLoading(false); setError(insertError.message); return }
+    await syncPeople(form.people_involved)
     setLoading(false)
-    if (error) setError(error.message)
-    else navigate('/incidents')
+    navigate('/incidents')
   }
 
   return (
@@ -41,7 +65,13 @@ export default function AddIncident() {
         </div>
       )}
       <div className="rounded-xl p-4 border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        <IncidentForm onSubmit={handleSubmit} loading={loading} submitLabel="Save Incident" />
+        <IncidentForm
+          onSubmit={handleSubmit}
+          loading={loading}
+          submitLabel="Save Incident"
+          cases={cases}
+          knownPeople={knownPeople}
+        />
       </div>
     </div>
   )

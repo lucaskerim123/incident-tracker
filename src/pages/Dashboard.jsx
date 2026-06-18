@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, TrendingUp, AlertCircle } from 'lucide-react'
+import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
@@ -13,7 +14,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [cases, setCases] = useState([])
   const [recent, setRecent] = useState([])
-  const [stats, setStats] = useState({ total: 0, pending: 0, thisMonth: 0 })
+  const [stats, setStats] = useState({ total: 0, pending: 0, thisMonth: 0, resolved: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -31,6 +32,7 @@ export default function Dashboard() {
       setStats({
         total: all.length,
         pending: all.filter(i => i.status === 'pending').length,
+        resolved: all.filter(i => i.status === 'resolved').length,
         thisMonth: all.filter(i => {
           const d = new Date(i.date)
           return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -45,7 +47,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-slate-100">Dashboard</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Private incident & case tracker</p>
+          <p className="text-xs text-slate-500 mt-0.5">{format(new Date(), 'EEEE, d MMMM yyyy')}</p>
         </div>
         {can.add && (
           <button onClick={() => navigate('/incidents/new')}
@@ -74,14 +76,17 @@ export default function Dashboard() {
         <>
           <CaseBanner cases={cases} />
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {[
-              { label: 'Total', value: stats.total },
-              { label: 'Pending', value: stats.pending, warn: stats.pending > 0 },
+              { label: 'All Time',   value: stats.total },
               { label: 'This Month', value: stats.thisMonth },
+              { label: 'Pending',    value: stats.pending,  warn: stats.pending > 0 },
+              { label: 'Resolved',   value: stats.resolved, good: stats.resolved > 0 },
             ].map(s => (
               <div key={s.label} className="rounded-xl p-3 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-                <p className={`text-2xl font-bold ${s.warn ? 'text-amber-400' : 'text-slate-100'}`}>{s.value}</p>
+                <p className={`text-2xl font-bold ${s.warn ? 'text-amber-400' : s.good ? 'text-emerald-400' : 'text-slate-100'}`}>
+                  {s.value}
+                </p>
                 <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
               </div>
             ))}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Check, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Search, UserCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
@@ -8,9 +8,9 @@ import ConfirmDialog from '../components/ConfirmDialog'
 const inputClass = 'w-full rounded-lg px-3 py-2 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
 const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
 
-function PersonRow({ person, onSave, onDelete, canManage }) {
+function PersonRow({ person, onSave, onDelete, onConfirm, canManage }) {
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ name: person.name, role: person.role, notes: person.notes ?? '' })
+  const [form, setForm] = useState({ name: person.name, role: person.role ?? '', notes: person.notes ?? '' })
   const [confirmDel, setConfirmDel] = useState(false)
 
   const save = () => { onSave(person.id, form); setEditing(false) }
@@ -34,24 +34,44 @@ function PersonRow({ person, onSave, onDelete, canManage }) {
     </div>
   )
 
+  const isPending = person.status === 'awaiting_review'
+
   return (
-    <div className="rounded-xl p-4 border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+    <div className={`rounded-xl p-4 border ${isPending ? 'opacity-80' : ''}`}
+      style={{ background: '#1a1d27', borderColor: isPending ? 'rgba(234,179,8,0.3)' : '#2a2d3a' }}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-100 text-sm">{person.name}</p>
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="font-semibold text-slate-100 text-sm">{person.name}</p>
+            {isPending && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(234,179,8,0.15)', color: '#eab308' }}>
+                Awaiting Review
+              </span>
+            )}
+          </div>
           {person.role && <p className="text-xs text-slate-400 mt-0.5">{person.role}</p>}
           {person.notes && <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{person.notes}</p>}
         </div>
-        {canManage && (
-          <div className="flex gap-1 shrink-0">
-            <button onClick={() => setEditing(true)} className="p-1.5 rounded text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-              <Pencil size={14} />
+        <div className="flex gap-1 shrink-0">
+          {canManage && isPending && (
+            <button onClick={() => onConfirm(person.id)}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              title="Confirm person">
+              <UserCheck size={13} /> Confirm
             </button>
-            <button onClick={() => setConfirmDel(true)} className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-              <Trash2 size={14} />
-            </button>
-          </div>
-        )}
+          )}
+          {canManage && (
+            <>
+              <button onClick={() => setEditing(true)} className="p-1.5 rounded text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+                <Pencil size={14} />
+              </button>
+              <button onClick={() => setConfirmDel(true)} className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <ConfirmDialog open={confirmDel} title="Remove Person" message={`Remove ${person.name} from the people list?`}
         confirmLabel="Remove" onConfirm={() => onDelete(person.id)} onCancel={() => setConfirmDel(false)} />
@@ -76,8 +96,14 @@ export default function People() {
 
   const addPerson = async () => {
     if (!newPerson.name.trim()) return
-    const { data } = await supabase.from('people').insert({ ...newPerson, user_id: user.id }).select().single()
-    if (data) { setPeople(p => [...p, data].sort((a, b) => a.name.localeCompare(b.name))); setAdding(false); setNewPerson({ name: '', role: '', notes: '' }) }
+    const { data } = await supabase.from('people')
+      .insert({ ...newPerson, user_id: user.id, status: 'confirmed' })
+      .select().single()
+    if (data) {
+      setPeople(p => [...p, data].sort((a, b) => a.name.localeCompare(b.name)))
+      setAdding(false)
+      setNewPerson({ name: '', role: '', notes: '' })
+    }
   }
 
   const savePerson = async (id, form) => {
@@ -85,17 +111,23 @@ export default function People() {
     if (data) setPeople(p => p.map(x => x.id === id ? data : x))
   }
 
+  const confirmPerson = async (id) => {
+    await supabase.from('people').update({ status: 'confirmed' }).eq('id', id)
+    setPeople(p => p.map(x => x.id === id ? { ...x, status: 'confirmed' } : x))
+  }
+
   const deletePerson = async (id) => {
     await supabase.from('people').delete().eq('id', id)
     setPeople(p => p.filter(x => x.id !== id))
   }
 
-  const visible = search.trim()
-    ? people.filter(p =>
-        p.name?.toLowerCase().includes(search.toLowerCase()) ||
-        p.role?.toLowerCase().includes(search.toLowerCase())
-      )
+  const q = search.toLowerCase().trim()
+  const filtered = q
+    ? people.filter(p => p.name?.toLowerCase().includes(q) || p.role?.toLowerCase().includes(q))
     : people
+
+  const confirmed = filtered.filter(p => p.status !== 'awaiting_review')
+  const awaiting = filtered.filter(p => p.status === 'awaiting_review')
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
@@ -143,16 +175,48 @@ export default function People() {
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : visible.length === 0 ? (
+      ) : people.length === 0 ? (
         <div className="rounded-xl p-10 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-          <p className="text-slate-400 text-sm">{people.length === 0 ? 'No people added yet.' : 'No people match your search.'}</p>
+          <p className="text-slate-400 text-sm">No people added yet.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {visible.map(p => (
-            <PersonRow key={p.id} person={p} onSave={savePerson} onDelete={deletePerson} canManage={can.managePeople} />
-          ))}
-        </div>
+        <>
+          {awaiting.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-2">
+                Awaiting Review · {awaiting.length}
+              </p>
+              <div className="flex flex-col gap-2">
+                {awaiting.map(p => (
+                  <PersonRow key={p.id} person={p} onSave={savePerson} onDelete={deletePerson}
+                    onConfirm={confirmPerson} canManage={can.managePeople} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {confirmed.length > 0 && (
+            <div>
+              {awaiting.length > 0 && (
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                  Confirmed · {confirmed.length}
+                </p>
+              )}
+              <div className="flex flex-col gap-2">
+                {confirmed.map(p => (
+                  <PersonRow key={p.id} person={p} onSave={savePerson} onDelete={deletePerson}
+                    onConfirm={confirmPerson} canManage={can.managePeople} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filtered.length === 0 && (
+            <div className="rounded-xl p-10 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+              <p className="text-slate-400 text-sm">No people match your search.</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
