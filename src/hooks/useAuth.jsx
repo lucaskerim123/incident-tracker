@@ -3,9 +3,6 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
-const ID_DOMAIN = 'it.local'
-const idToEmail = (id) => `${id}@${ID_DOMAIN}`
-
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [userRole, setUserRole] = useState(null)
@@ -43,8 +40,8 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }
 
-  const signInWithId = async (id, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email: idToEmail(id), password })
+  const signInWithEmail = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { data: null, error }
     const { data: userData } = await supabase.from('users')
       .select('status').eq('id', data.user.id).single()
@@ -64,15 +61,6 @@ export function AuthProvider({ children }) {
     return { data, error: null }
   }
 
-  const register = async (id, password) => {
-    const { error } = await supabase.auth.signUp({
-      email: idToEmail(id),
-      password,
-    })
-    if (error) return { error: error.message }
-    return { error: null }
-  }
-
   const signOut = () => supabase.auth.signOut()
 
   const updatePasscode = (password) =>
@@ -81,7 +69,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       session, user: session?.user, userRole, userCode, userStatus, displayName, loading,
-      signInWithId, register, signOut, updatePasscode,
+      signInWithEmail, signOut, updatePasscode,
     }}>
       {children}
     </AuthContext.Provider>

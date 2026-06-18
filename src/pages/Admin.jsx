@@ -59,7 +59,7 @@ export default function Admin() {
 
   // Create user
   const [creating, setCreating] = useState(false)
-  const [createForm, setCreateForm] = useState({ password: '', role: 'viewer', displayName: '' })
+  const [createForm, setCreateForm] = useState({ email: '', password: '', role: 'viewer', displayName: '' })
   const [createLoading, setCreateLoading] = useState(false)
   const [createMsg, setCreateMsg] = useState({ text: '', ok: false })
 
@@ -84,7 +84,7 @@ export default function Admin() {
   useEffect(() => {
     supabase.from('users').select('id, user_code, display_name, email, role, status, created_at').neq('status', 'pending').order('user_code')
       .then(({ data }) => setAppUsers(data ?? []))
-    supabase.from('users').select('id, user_code, created_at').eq('status', 'pending').order('created_at')
+    supabase.from('users').select('id, user_code, email, display_name, created_at').eq('status', 'pending').order('created_at')
       .then(({ data }) => {
         setPendingUsers(data ?? [])
         const roles = {}
@@ -153,10 +153,11 @@ export default function Admin() {
 
   const createUser = async (e) => {
     e.preventDefault()
-    if (!createForm.password) return
+    if (!createForm.email.trim() || !createForm.password) return
     setCreateLoading(true)
     setCreateMsg({ text: '', ok: false })
     const { data, error } = await supabase.rpc('admin_create_user', {
+      in_email: createForm.email.trim().toLowerCase(),
       in_password: createForm.password,
       in_role: createForm.role,
       in_display_name: createForm.displayName.trim() || null,
@@ -172,12 +173,13 @@ export default function Admin() {
       id: newId,
       user_code: newCode,
       display_name: createForm.displayName.trim() || null,
-      email: `${newCode}@it.local`,
+      email: createForm.email.trim().toLowerCase(),
       role: createForm.role,
+      status: 'active',
       created_at: new Date().toISOString(),
     }, ...a].sort((a, b) => a.user_code - b.user_code))
-    setCreateMsg({ text: `User #${newCode} created successfully.`, ok: true })
-    setCreateForm({ password: '', role: 'viewer', displayName: '' })
+    setCreateMsg({ text: `User ${createForm.email.trim()} (#${newCode}) created.`, ok: true })
+    setCreateForm({ email: '', password: '', role: 'viewer', displayName: '' })
     setTimeout(() => setCreateMsg({ text: '', ok: false }), 5000)
   }
 
@@ -300,9 +302,9 @@ export default function Admin() {
               {pendingUsers.map(u => (
                 <div key={`reg-${u.id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-lg"
                   style={{ background: '#0f1117' }}>
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     <TypeBadge type="registration" />
-                    <span className="text-xs text-slate-400 font-mono">#{u.user_code ?? '—'}</span>
+                    <span className="text-xs text-slate-300 truncate">{u.email ?? u.display_name ?? `#${u.user_code}`}</span>
                     <span className="text-xs text-slate-600">
                       {u.created_at && format(new Date(u.created_at), 'd MMM yyyy')}
                     </span>
@@ -442,6 +444,16 @@ export default function Admin() {
           {creating && (
             <form onSubmit={createUser} className="px-4 pb-4 flex flex-col gap-3 border-t" style={{ borderColor: '#2a2d3a' }}>
               <div className="pt-3 grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="text-xs text-slate-500 mb-1 block">Email <span className="text-red-400">*</span></label>
+                  <input
+                    type="email"
+                    required
+                    value={createForm.email}
+                    onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="user@example.com"
+                    className={inputClass} style={inputStyle} />
+                </div>
                 <div className="col-span-2">
                   <label className="text-xs text-slate-500 mb-1 block">Display name <span className="text-slate-600">(optional)</span></label>
                   <input

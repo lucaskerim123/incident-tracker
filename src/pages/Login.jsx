@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { Shield, Hash, Lock, Eye, EyeOff, Clock, KeyRound, ArrowLeft, Copy, Check } from 'lucide-react'
+import { Shield, Mail, User, Lock, Eye, EyeOff, Clock, KeyRound, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function Login() {
-  const { session, signInWithId } = useAuth()
+  const { session, signInWithEmail } = useAuth()
   const [tab, setTab] = useState('login')
 
   // Sign in
-  const [userId, setUserId] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -17,45 +17,47 @@ export default function Login() {
 
   // Forgot password
   const [forgotMode, setForgotMode] = useState(false)
-  const [forgotCode, setForgotCode] = useState('')
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotToken, setForgotToken] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotDone, setForgotDone] = useState(false)
-  const [forgotToken, setForgotToken] = useState('')
   const [forgotError, setForgotError] = useState('')
 
   // Register
+  const [regEmail, setRegEmail] = useState('')
+  const [regDisplayName, setRegDisplayName] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regConfirm, setRegConfirm] = useState('')
   const [showRegPw, setShowRegPw] = useState(false)
   const [regLoading, setRegLoading] = useState(false)
   const [regError, setRegError] = useState('')
   const [regDone, setRegDone] = useState(false)
-  const [assignedCode, setAssignedCode] = useState(null)
-  const [codeCopied, setCodeCopied] = useState(false)
 
   if (session) return <Navigate to="/" replace />
 
   const handleLogin = async (e) => {
     e.preventDefault()
-    if (!userId.trim() || !password) return
+    if (!email.trim() || !password) return
     setLoading(true); setError('')
-    const { error } = await signInWithId(userId.trim(), password)
+    const { error } = await signInWithEmail(email.trim(), password)
     setLoading(false)
     if (error) {
       if (error.message && error.message !== 'Invalid login credentials') {
         setError(error.message)
       } else {
-        setError('Invalid access ID or password.')
+        setError('Invalid email or password.')
       }
     }
   }
 
   const handleForgot = async (e) => {
     e.preventDefault()
-    if (!forgotCode.trim()) return
-    if (forgotToken.length !== 4) return
+    if (!forgotEmail.trim() || forgotToken.length !== 4) return
     setForgotLoading(true); setForgotError('')
-    const { error } = await supabase.rpc('request_password_reset', { in_user_code: forgotCode.trim(), in_token: forgotToken })
+    const { error } = await supabase.rpc('request_password_reset', {
+      in_email: forgotEmail.trim().toLowerCase(),
+      in_token: forgotToken,
+    })
     setForgotLoading(false)
     if (error) setForgotError('Something went wrong. Try again.')
     else setForgotDone(true)
@@ -66,20 +68,24 @@ export default function Login() {
     if (regPassword !== regConfirm) { setRegError("Passwords don't match."); return }
     if (regPassword.length < 6) { setRegError('Minimum 6 characters.'); return }
     setRegLoading(true); setRegError('')
-    const { data, error } = await supabase.rpc('register_user', { in_password: regPassword })
+    const { error } = await supabase.rpc('register_user', {
+      in_email: regEmail.trim().toLowerCase(),
+      in_password: regPassword,
+      in_display_name: regDisplayName.trim() || null,
+    })
     setRegLoading(false)
     if (error) setRegError(error.message)
-    else { setAssignedCode(data?.user_code); setRegDone(true) }
+    else setRegDone(true)
   }
 
-  const copyCode = async () => {
-    await navigator.clipboard.writeText(String(assignedCode))
-    setCodeCopied(true)
-    setTimeout(() => setCodeCopied(false), 2000)
+  const resetLogin = () => {
+    setTab('login'); setForgotMode(false); setForgotDone(false)
+    setForgotEmail(''); setForgotToken(''); setForgotError('')
   }
-
-  const resetLogin = () => { setTab('login'); setForgotMode(false); setForgotDone(false); setForgotCode(''); setForgotToken(''); setForgotError('') }
-  const resetRegister = () => { setRegDone(false); setRegPassword(''); setRegConfirm(''); setAssignedCode(null) }
+  const resetRegister = () => {
+    setRegDone(false); setRegEmail(''); setRegDisplayName('')
+    setRegPassword(''); setRegConfirm('')
+  }
 
   const inputClass = 'w-full rounded-xl px-4 py-3 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
   const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
@@ -114,10 +120,10 @@ export default function Login() {
           {tab === 'login' && !forgotMode && (
             <form onSubmit={handleLogin} className="flex flex-col gap-3">
               <div className="relative">
-                <Hash size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                <input type="text" inputMode="numeric" placeholder="Access ID (e.g. 1000)"
-                  required value={userId}
-                  onChange={e => setUserId(e.target.value.replace(/\D/g, ''))}
+                <Mail size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
+                <input type="email" placeholder="Email address"
+                  required value={email}
+                  onChange={e => setEmail(e.target.value)}
                   className={`${inputClass} pl-9`} style={inputStyle} />
               </div>
               <div className="relative">
@@ -154,7 +160,7 @@ export default function Login() {
                 </div>
                 <p className="font-semibold text-slate-100">Request submitted</p>
                 <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-                  An admin will verify the code with you before resetting your password.
+                  An admin will verify your confirmation code and reset your password.
                 </p>
                 <button onClick={resetLogin}
                   className="mt-4 text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mx-auto">
@@ -168,12 +174,12 @@ export default function Login() {
                   <ArrowLeft size={12} /> Back
                 </button>
                 <p className="text-sm font-semibold text-slate-100">Reset password</p>
-                <p className="text-xs text-slate-500 leading-relaxed">Enter your access ID and pick a 4-digit confirmation code. Share it with an admin — they'll verify it before resetting your password.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Enter your email and pick a 4-digit confirmation code. Share it with an admin — they'll verify it before resetting your password.</p>
                 <div className="relative">
-                  <Hash size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                  <input type="text" inputMode="numeric" placeholder="Your Access ID"
-                    required value={forgotCode}
-                    onChange={e => setForgotCode(e.target.value.replace(/\D/g, ''))}
+                  <Mail size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
+                  <input type="email" placeholder="Your email address"
+                    required value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
                     className={`${inputClass} pl-9`} style={inputStyle} />
                 </div>
                 <div className="relative">
@@ -202,21 +208,11 @@ export default function Login() {
                   style={{ background: 'rgba(234,179,8,0.15)' }}>
                   <Clock size={22} className="text-yellow-400" />
                 </div>
-                <p className="font-semibold text-slate-100 mb-3">Account created!</p>
-
-                {/* Assigned code — prominent */}
-                <div className="rounded-xl p-4 mb-3" style={{ background: '#0f1117', border: '1px solid rgba(99,102,241,0.3)' }}>
-                  <p className="text-xs text-slate-500 mb-1">Your Access ID</p>
-                  <p className="text-4xl font-mono font-bold text-indigo-400 mb-1">#{assignedCode}</p>
-                  <p className="text-xs text-slate-500">Use this to sign in — save it now</p>
-                  <button onClick={copyCode}
-                    className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 mx-auto transition-colors">
-                    {codeCopied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                    {codeCopied ? 'Copied!' : 'Copy ID'}
-                  </button>
-                </div>
-
-                <p className="text-sm text-slate-400">Awaiting admin approval before you can sign in.</p>
+                <p className="font-semibold text-slate-100 mb-2">Account created!</p>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Awaiting admin approval. You'll be able to sign in with{' '}
+                  <span className="text-slate-300">{regEmail}</span> once approved.
+                </p>
                 <button onClick={() => { setTab('login'); resetRegister() }}
                   className="mt-4 text-xs text-indigo-400 hover:text-indigo-300">
                   Go to Sign In →
@@ -224,9 +220,20 @@ export default function Login() {
               </div>
             ) : (
               <form onSubmit={handleRegister} className="flex flex-col gap-3">
-                <p className="text-xs text-slate-500 mb-1">
-                  Set a password. Your access ID will be assigned automatically.
-                </p>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
+                  <input type="email" placeholder="Email address"
+                    required value={regEmail}
+                    onChange={e => setRegEmail(e.target.value)}
+                    className={`${inputClass} pl-9`} style={inputStyle} />
+                </div>
+                <div className="relative">
+                  <User size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
+                  <input type="text" placeholder="Display name (optional)"
+                    value={regDisplayName}
+                    onChange={e => setRegDisplayName(e.target.value)}
+                    className={`${inputClass} pl-9`} style={inputStyle} />
+                </div>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
                   <input type={showRegPw ? 'text' : 'password'} placeholder="Password (min 6 chars)"
