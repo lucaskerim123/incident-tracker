@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Lock, Eye, EyeOff, Pencil, Check, X, LogOut, AlertTriangle, Clock } from 'lucide-react'
+import { Lock, Eye, EyeOff, Pencil, Check, X, LogOut, AlertTriangle, Clock, HelpCircle, Mail } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
+import { useAppSettings } from '../hooks/useAppSettings'
 
 const inputClass = 'w-full rounded-lg px-3 py-2.5 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
 const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
@@ -24,6 +25,7 @@ function RoleBadge({ role }) {
 export default function Settings() {
   const { user, userCode, updatePasscode, signOut } = useAuth()
   const { role } = usePermissions()
+  const { settings: appSettings } = useAppSettings()
 
   // Profile
   const [displayName, setDisplayName] = useState('')
@@ -259,6 +261,28 @@ export default function Settings() {
           </>
         )}
       </div>
+
+      {/* Help & Contact — only shown when admin has configured it */}
+      {(appSettings.help_message || appSettings.help_email) && (
+        <div className="rounded-xl p-4 border mt-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <HelpCircle size={14} className="text-indigo-400" />
+            <SectionTitle>Need Help?</SectionTitle>
+          </div>
+          {appSettings.help_message && (
+            <p className="text-sm text-slate-300 mb-3">{appSettings.help_message}</p>
+          )}
+          {appSettings.help_email && (
+            <a
+              href={`mailto:${appSettings.help_email}`}
+              className="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              <Mail size={14} />
+              {appSettings.help_email}
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound, Shield, Ban, ShieldOff } from 'lucide-react'
+import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound, Shield, Ban, ShieldOff, Settings2, HelpCircle, Zap } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
+import { useAppSettings } from '../hooks/useAppSettings'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 const selectClass = 'text-xs rounded px-2 py-1 border text-slate-300 outline-none focus:border-indigo-500'
@@ -82,7 +83,7 @@ export default function Admin() {
   const [confirmRevoke, setConfirmRevoke] = useState(null)
 
   // Collapsible sections
-  const [openSections, setOpenSections] = useState({ pending: true, users: true, suspensions: false, security: false })
+  const [openSections, setOpenSections] = useState({ pending: true, users: true, suspensions: false, security: false, appSettings: false })
   const toggleSection = (key) => setOpenSections(s => ({ ...s, [key]: !s[key] }))
 
   // Suspensions & Bans section
@@ -105,6 +106,22 @@ export default function Admin() {
   // Login history per user
   const [loginHistory, setLoginHistory] = useState({})
   const [loginHistoryLoading, setLoginHistoryLoading] = useState({})
+
+  // App settings
+  const { settings: appSettings, updateSetting, loading: settingsLoading } = useAppSettings()
+  const [helpForm, setHelpForm] = useState({ message: '', email: '' })
+  const [helpSaving, setHelpSaving] = useState(false)
+  const [helpMsg, setHelpMsg] = useState({ text: '', ok: false })
+
+  // Sync help form with loaded settings
+  useEffect(() => {
+    if (!settingsLoading) {
+      setHelpForm({
+        message: appSettings.help_message ?? '',
+        email: appSettings.help_email ?? '',
+      })
+    }
+  }, [settingsLoading, appSettings.help_message, appSettings.help_email])
 
   useEffect(() => {
     supabase.from('users').select('id, user_code, display_name, email, role, status, created_at').neq('status', 'pending').order('user_code')
@@ -386,6 +403,27 @@ export default function Admin() {
     if (error) { alert(`Failed: ${error.message}`); return }
     setBannedUsers(b => b.filter(x => x.id !== targetId))
     setAppUsers(u => u.map(x => x.id === targetId ? { ...x, status: 'active' } : x))
+  }
+
+  const toggleAppSetting = async (key) => {
+    const newVal = appSettings[key] ? 'false' : 'true'
+    await updateSetting(key, newVal)
+  }
+
+  const saveHelp = async () => {
+    setHelpSaving(true)
+    setHelpMsg({ text: '', ok: false })
+    const [r1, r2] = await Promise.all([
+      updateSetting('help_message', helpForm.message),
+      updateSetting('help_email', helpForm.email),
+    ])
+    setHelpSaving(false)
+    if (r1.error || r2.error) {
+      setHelpMsg({ text: 'Failed to save. Check permissions.', ok: false })
+    } else {
+      setHelpMsg({ text: 'Help info saved.', ok: true })
+      setTimeout(() => setHelpMsg({ text: '', ok: false }), 3000)
+    }
   }
 
   const pendingCount = pendingUsers.length + deletionRequests.length + pwResetRequests.length
@@ -1219,6 +1257,146 @@ export default function Admin() {
           )}
         </div>
       )}
+        </div>
+      )}
+
+      {/* App Settings — admin only */}
+      {isAdmin && (
+        <div className="rounded-xl border mb-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+          <button onClick={() => toggleSection('appSettings')}
+            className="w-full flex items-center justify-between px-4 py-3 text-left">
+            <div className="flex items-center gap-2">
+              <Settings2 size={13} className="text-indigo-400" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">App Settings</span>
+            </div>
+            <ChevronDown size={14} className={`text-slate-600 transition-transform ${openSections.appSettings ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.appSettings && (
+            <div className="px-4 pb-5 border-t space-y-6" style={{ borderColor: '#2a2d3a' }}>
+
+              {/* Registration */}
+              <div className="pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <UserCheck size={13} className="text-slate-500" />
+                  <SectionTitle>Registration</SectionTitle>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {/* Registration open */}
+                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg" style={{ background: '#0f1117' }}>
+                    <div>
+                      <p className="text-sm font-medium text-slate-200">Registration open</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Allow new users to sign up. Turn off to block all new registrations.</p>
+                    </div>
+                    <button
+                      onClick={() => toggleAppSetting('registration_enabled')}
+                      disabled={settingsLoading}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-40 ${appSettings.registration_enabled ? 'bg-indigo-500' : 'bg-slate-700'}`}
+                      role="switch"
+                      aria-checked={!!appSettings.registration_enabled}
+                    >
+                      <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${appSettings.registration_enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+
+                  {/* Auto-approve */}
+                  <div className={`flex items-center justify-between gap-4 p-3 rounded-lg transition-opacity ${!appSettings.registration_enabled ? 'opacity-40 pointer-events-none' : ''}`}
+                    style={{ background: '#0f1117' }}>
+                    <div>
+                      <p className="text-sm font-medium text-slate-200">Auto-approve registrations</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Skip the pending queue — new signups go straight to active. Requires registration to be open.</p>
+                    </div>
+                    <button
+                      onClick={() => toggleAppSetting('auto_approve_registrations')}
+                      disabled={settingsLoading || !appSettings.registration_enabled}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-40 ${appSettings.auto_approve_registrations ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                      role="switch"
+                      aria-checked={!!appSettings.auto_approve_registrations}
+                    >
+                      <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${appSettings.auto_approve_registrations ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Features */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap size={13} className="text-slate-500" />
+                  <SectionTitle>App Sections</SectionTitle>
+                </div>
+                <p className="text-xs text-slate-500 mb-3 -mt-1">Toggle sections on or off for all users. Disabled sections are hidden from the navigation.</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { key: 'feature_incidents', label: 'Incidents', desc: 'Incident log and timeline' },
+                    { key: 'feature_people',    label: 'People',    desc: 'Person profiles and relationships' },
+                    { key: 'feature_cases',     label: 'Cases',     desc: 'Legal cases and court dates' },
+                    { key: 'feature_documents', label: 'Documents', desc: 'File uploads and document links' },
+                  ].map(({ key, label, desc }) => (
+                    <div key={key} className="flex items-center justify-between gap-4 p-3 rounded-lg" style={{ background: '#0f1117' }}>
+                      <div>
+                        <p className="text-sm font-medium text-slate-200">{label}</p>
+                        <p className="text-xs text-slate-500">{desc}</p>
+                      </div>
+                      <button
+                        onClick={() => toggleAppSetting(key)}
+                        disabled={settingsLoading}
+                        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-40 ${appSettings[key] !== false ? 'bg-indigo-500' : 'bg-slate-700'}`}
+                        role="switch"
+                        aria-checked={appSettings[key] !== false}
+                      >
+                        <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${appSettings[key] !== false ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Help & Contact */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <HelpCircle size={13} className="text-slate-500" />
+                  <SectionTitle>Help &amp; Contact</SectionTitle>
+                </div>
+                <p className="text-xs text-slate-500 mb-3 -mt-1">This message and email are shown to all users on their Settings page.</p>
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1.5">Help message</p>
+                    <textarea
+                      rows={3}
+                      value={helpForm.message}
+                      onChange={e => setHelpForm(f => ({ ...f, message: e.target.value }))}
+                      placeholder="e.g. For support, contact the system administrator."
+                      className={`${inputClass} resize-none`}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1.5">Help email</p>
+                    <input
+                      type="email"
+                      value={helpForm.email}
+                      onChange={e => setHelpForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="admin@example.com"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                  {helpMsg.text && (
+                    <p className={`text-xs ${helpMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{helpMsg.text}</p>
+                  )}
+                  <button
+                    onClick={saveHelp}
+                    disabled={helpSaving}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold text-white w-fit disabled:opacity-50"
+                    style={{ background: '#6366f1' }}>
+                    {helpSaving ? 'Saving…' : 'Save Help Info'}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          )}
         </div>
       )}
 
