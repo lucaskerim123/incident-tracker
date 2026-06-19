@@ -6,6 +6,17 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
 
+const ROLE_TERMS = /\b(police|court|constable|magistrate|inspector|sergeant|sgt|procon|lecc|unknown)\b/i
+
+function filterPeople(people) {
+  return (people ?? []).filter(p => {
+    const name = p.trim()
+    if (!name) return false
+    if (ROLE_TERMS.test(name)) return false
+    return true
+  })
+}
+
 const STATUS_STYLES = {
   documented: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
   pending:    { bg: 'rgba(249,115,22,0.12)',  text: '#fb923c' },
@@ -171,12 +182,12 @@ export default function IncidentDrawer({ incidentId, onClose }) {
               )}
 
               {/* Who's involved */}
-              {incident.people_involved?.length > 0 && (
+              {filterPeople(incident.people_involved).length > 0 && (
                 <Field label="Who's Involved">
                   <div className="flex items-start gap-2">
                     <User size={13} className="text-slate-500 mt-0.5 shrink-0" />
                     <div className="flex flex-wrap gap-1.5">
-                      {incident.people_involved.map(p => (
+                      {filterPeople(incident.people_involved).map(p => (
                         <span key={p} className="text-xs px-2.5 py-1 rounded-full font-medium"
                           style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}>
                           {p}
