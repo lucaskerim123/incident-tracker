@@ -112,71 +112,70 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, canUpload, onEdit,
   }
 
   return (
-    <div className="rounded-xl border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-      <div className="p-3.5">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex flex-wrap gap-1.5">
-            {charge.charge_number && (
-              <span className="text-xs font-mono text-slate-400 px-2 py-0.5 rounded" style={{ background: '#0f1117' }}>{charge.charge_number}</span>
-            )}
-            <span style={{ ...st, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>{charge.status}</span>
-            {br && <span style={{ ...br, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>Breach: {charge.breach_type.toUpperCase()}</span>}
-            {charge.plea && charge.plea !== 'no plea' && (
-              <span className="text-[11px] px-2 py-0.5 rounded font-semibold" style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
-                {charge.plea}
-              </span>
-            )}
-          </div>
-          {charge.date_of_charge && (
-            <time className="text-xs text-slate-500 shrink-0">{format(new Date(charge.date_of_charge), 'd MMM yyyy')}</time>
+    <div className="rounded-xl border p-3.5" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+      {/* Row 1: charge number + date */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {charge.charge_number && (
+            <span className="text-xs font-mono text-slate-400 px-2 py-0.5 rounded" style={{ background: '#0f1117' }}>{charge.charge_number}</span>
+          )}
+          <span style={{ ...st, padding: '2px 7px', fontSize: 10, borderRadius: 4, fontWeight: 600 }}>{charge.status}</span>
+          {br && <span style={{ ...br, padding: '2px 7px', fontSize: 10, borderRadius: 4, fontWeight: 600 }}>{charge.breach_type.toUpperCase()}</span>}
+          {charge.plea && charge.plea !== 'no plea' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>{charge.plea}</span>
           )}
         </div>
-
-        {incidentTitle && (
-          <p className="text-xs text-slate-500 mb-2">Linked: <span className="text-slate-400">{incidentTitle}</span></p>
-        )}
-        {charge.outcome && (
-          <p className="text-sm text-slate-300 mb-2 leading-relaxed">{charge.outcome}</p>
-        )}
-        {charge.notes && (
-          <p className="text-xs text-slate-500 leading-relaxed">{charge.notes}</p>
-        )}
-        {charge.fact_sheet_url && (
-          <a href={charge.fact_sheet_url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-            <FileText size={11} /> Fact sheet
-          </a>
+        {charge.date_of_charge && (
+          <time className="text-xs text-slate-500 shrink-0">{format(new Date(charge.date_of_charge), 'd MMM yyyy')}</time>
         )}
       </div>
 
-      {/* Fact sheets */}
-      {(cardDocs.length > 0 || canUpload) && (
-        <div className="px-3.5 pb-3.5 border-t pt-3" style={{ borderColor: '#2a2d3a' }}>
-          {cardDocs.length > 0 && (
-            <div className="flex flex-col gap-1.5 mb-2">
-              {cardDocs.map(d => <DocumentViewer key={d.id} doc={d} />)}
-            </div>
-          )}
-          {canUpload && (
-            <>
-              <input ref={fileRef} type="file" className="hidden" onChange={e => uploadFile(e.target.files?.[0])} />
-              <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-400 transition-colors disabled:opacity-40">
-                <Upload size={12} /> {uploading ? 'Uploading…' : 'Add fact sheet'}
-              </button>
-            </>
-          )}
-        </div>
+      {/* Row 2: outcome */}
+      {charge.outcome && (
+        <p className="text-xs text-slate-300 truncate mb-1">{charge.outcome}</p>
       )}
 
-      {canManage && (
-        <div className="flex justify-end gap-0.5 px-2 pb-2">
-          <button onClick={onEdit} className="p-1.5 rounded text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-            <Pencil size={13} />
-          </button>
-          <button onClick={onDelete} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-            <Trash2 size={13} />
-          </button>
+      {/* Row 3: notes */}
+      {charge.notes && (
+        <p className="text-xs text-slate-500 truncate mb-1">{charge.notes}</p>
+      )}
+
+      {/* Row 4: linked incident */}
+      {incidentTitle && (
+        <p className="text-xs text-slate-600 truncate">Incident: <span className="text-slate-500">{incidentTitle}</span></p>
+      )}
+
+      {/* Footer: docs + fact sheet + edit/delete */}
+      {(cardDocs.length > 0 || canUpload || charge.fact_sheet_url || canManage) && (
+        <div className="flex items-center gap-3 mt-2.5 pt-2.5 border-t" style={{ borderColor: '#2a2d3a' }}>
+          <div className="flex items-center gap-2 flex-1 flex-wrap">
+            {charge.fact_sheet_url && (
+              <a href={charge.fact_sheet_url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                <FileText size={11} /> Fact sheet
+              </a>
+            )}
+            {cardDocs.map(d => <DocumentViewer key={d.id} doc={d} />)}
+            {canUpload && (
+              <>
+                <input ref={fileRef} type="file" className="hidden" onChange={e => uploadFile(e.target.files?.[0])} />
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-indigo-400 transition-colors disabled:opacity-40">
+                  <Upload size={11} /> {uploading ? 'Uploading…' : 'Add doc'}
+                </button>
+              </>
+            )}
+          </div>
+          {canManage && (
+            <div className="flex gap-0.5 shrink-0">
+              <button onClick={onEdit} className="p-1.5 rounded text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+                <Pencil size={12} />
+              </button>
+              <button onClick={onDelete} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
