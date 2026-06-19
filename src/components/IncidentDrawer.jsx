@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { X, Pencil, Send, Trash2, MessageSquare, FileText, ExternalLink, User } from 'lucide-react'
+import { X, Pencil, Send, Trash2, MessageSquare, FileText, ExternalLink, User, Link2, FolderOpen, Check, X as XIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -23,6 +23,13 @@ const STATUS_STYLES = {
   resolved:   { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
 }
 
+const CHARGE_STATUS_STYLES = {
+  pending:    { bg: 'rgba(249,115,22,0.12)',  text: '#fb923c' },
+  adjourned:  { bg: 'rgba(99,102,241,0.12)',  text: '#818cf8' },
+  finalised:  { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
+  withdrawn:  { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
+}
+
 function Field({ label, children }) {
   return (
     <div className="mb-5">
@@ -37,12 +44,22 @@ export default function IncidentDrawer({ incidentId, onClose }) {
   const { user, userCode } = useAuth()
   const { can } = usePermissions()
   const [incident, setIncident] = useState(null)
+  const [charges, setCharges] = useState([])
   const [documents, setDocuments] = useState([])
   const [comments, setComments] = useState([])
   const [userNames, setUserNames] = useState({})
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // Linked charge
+  const [chargeId, setChargeId] = useState(null)
+  const [savingCharge, setSavingCharge] = useState(false)
+
+  // Case folder
+  const [folderUrl, setFolderUrl] = useState('')
+  const [editingFolder, setEditingFolder] = useState(false)
+  const [savingFolder, setSavingFolder] = useState(false)
 
   useEffect(() => {
     if (!incidentId) return
@@ -54,9 +71,15 @@ export default function IncidentDrawer({ incidentId, onClose }) {
       supabase.from('incidents').select('*').eq('id', incidentId).single(),
       supabase.from('documents').select('*').eq('related_incident_id', incidentId).order('created_at'),
       supabase.from('incident_comments').select('*').eq('incident_id', incidentId).order('created_at'),
-    ]).then(([incRes, docsRes, commentsRes]) => {
-      if (!incRes.error) setIncident(incRes.data)
+      supabase.from('charges').select('id, charge_number, breach_type, status, date_of_charge').order('date_of_charge', { ascending: false }),
+    ]).then(([incRes, docsRes, commentsRes, chargesRes]) => {
+      if (!incRes.error) {
+        setIncident(incRes.data)
+        setChargeId(incRes.data.linked_charge_id ?? null)
+        setFolderUrl(incRes.data.case_folder_url ?? '')
+      }
       setDocuments(docsRes.data ?? [])
+      setCharges(chargesRes.data ?? [])
       const loaded = commentsRes.data ?? []
       setComments(loaded)
       const ids = [...new Set(loaded.map(c => c.user_id).filter(Boolean))]
@@ -76,6 +99,22 @@ export default function IncidentDrawer({ incidentId, onClose }) {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
+
+  const saveCharge = async (newChargeId) => {
+    setSavingCharge(true)
+    const val = newChargeId === '' ? null : newChargeId
+    await supabase.from('incidents').update({ linked_charge_id: val }).eq('id', incidentId)
+    setChargeId(val)
+    setSavingCharge(false)
+  }
+
+  const saveFolder = async () => {
+    setSavingFolder(true)
+    const val = folderUrl.trim() || null
+    await supabase.from('incidents').update({ case_folder_url: val }).eq('id', incidentId)
+    setSavingFolder(false)
+    setEditingFolder(false)
+  }
 
   const postComment = async () => {
     const content = commentText.trim()
@@ -100,6 +139,8 @@ export default function IncidentDrawer({ incidentId, onClose }) {
     const { data } = supabase.storage.from('documents').getPublicUrl(path)
     return data?.publicUrl ?? '#'
   }
+
+  const linkedCharge = charges.find(c => c.id === chargeId) ?? null
 
   return (
     <>
@@ -197,6 +238,116 @@ export default function IncidentDrawer({ incidentId, onClose }) {
                   </div>
                 </Field>
               )}
+
+              {/* Linked Charge */}
+              <Field label="Linked Charge">
+                {can.edit ? (
+                  <div className="flex items-center gap-2">
+                    <Link2 size={13} className="text-slate-500 shrink-0" />
+                    <select
+                      value={chargeId ?? ''}
+                      onChange={e => saveCharge(e.target.value)}
+                      disabled={savingCharge}
+                      className="flex-1 rounded-lg px-3 py-2 text-xs text-slate-100 border outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
+                      style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}
+                    >
+                      <option value="">— None —</option>
+                      {charges.map(ch => (
+                        <option key={ch.id} value={ch.id}>
+                          {ch.charge_number || 'Charge'}{ch.breach_type ? ` · ${ch.breach_type.toUpperCase()}` : ''}{ch.date_of_charge ? ` · ${ch.date_of_charge}` : ''} [{ch.status}]
+                        </option>
+                      ))}
+                    </select>
+                    {savingCharge && <div className="w-3.5 h-3.5 border border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />}
+                  </div>
+                ) : linkedCharge ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#1a1d27' }}>
+                    <Link2 size={12} className="text-slate-500 shrink-0" />
+                    <span className="text-xs text-slate-300 font-medium">
+                      {linkedCharge.charge_number || 'Charge'}
+                      {linkedCharge.breach_type && <span className="ml-1.5 text-slate-500">{linkedCharge.breach_type.toUpperCase()}</span>}
+                    </span>
+                    {linkedCharge.status && (
+                      <span style={{
+                        background: CHARGE_STATUS_STYLES[linkedCharge.status]?.bg,
+                        color: CHARGE_STATUS_STYLES[linkedCharge.status]?.text,
+                        padding: '1px 6px', fontSize: 10, borderRadius: 4, fontWeight: 600
+                      }}>
+                        {linkedCharge.status}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-600">No charge linked.</p>
+                )}
+                {charges.length === 0 && can.edit && (
+                  <p className="text-xs text-slate-600 mt-1.5">No charges on file yet — add one in Charges / AVO.</p>
+                )}
+              </Field>
+
+              {/* Case Folder */}
+              <Field label="Case Folder">
+                {can.edit ? (
+                  editingFolder ? (
+                    <div className="flex items-center gap-2">
+                      <FolderOpen size={13} className="text-slate-500 shrink-0" />
+                      <input
+                        type="url"
+                        value={folderUrl}
+                        onChange={e => setFolderUrl(e.target.value)}
+                        placeholder="https://drive.google.com/…"
+                        className="flex-1 rounded-lg px-3 py-2 text-xs text-slate-100 border outline-none focus:border-indigo-500 transition-colors"
+                        style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}
+                        onKeyDown={e => { if (e.key === 'Enter') saveFolder(); if (e.key === 'Escape') setEditingFolder(false) }}
+                        autoFocus
+                      />
+                      <button onClick={saveFolder} disabled={savingFolder}
+                        className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-30 transition-colors shrink-0">
+                        <Check size={14} />
+                      </button>
+                      <button onClick={() => { setFolderUrl(incident.case_folder_url ?? ''); setEditingFolder(false) }}
+                        className="p-1.5 rounded-lg text-slate-500 hover:bg-white/5 transition-colors shrink-0">
+                        <XIcon size={14} />
+                      </button>
+                    </div>
+                  ) : folderUrl ? (
+                    <div className="flex items-center gap-2">
+                      <a href={folderUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg border hover:border-indigo-500/40 transition-colors group/folder"
+                        style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+                        <FolderOpen size={13} className="text-slate-500 shrink-0" />
+                        <span className="text-xs text-slate-300 truncate group-hover/folder:text-indigo-300 transition-colors">
+                          {folderUrl}
+                        </span>
+                        <ExternalLink size={11} className="text-slate-600 shrink-0 ml-auto" />
+                      </a>
+                      <button onClick={() => setEditingFolder(true)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors shrink-0">
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setEditingFolder(true)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed text-xs text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors"
+                      style={{ borderColor: '#2a2d3a' }}>
+                      <FolderOpen size={12} />
+                      Add case folder link…
+                    </button>
+                  )
+                ) : folderUrl ? (
+                  <a href={folderUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:border-indigo-500/40 transition-colors group/folder"
+                    style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+                    <FolderOpen size={13} className="text-slate-500 shrink-0" />
+                    <span className="text-xs text-slate-300 truncate group-hover/folder:text-indigo-300 transition-colors">
+                      {folderUrl}
+                    </span>
+                    <ExternalLink size={11} className="text-slate-600 shrink-0 ml-auto" />
+                  </a>
+                ) : (
+                  <p className="text-xs text-slate-600">No case folder linked.</p>
+                )}
+              </Field>
 
               {/* Attached Documents */}
               <Field label={`Attached Documents${documents.length > 0 ? ` · ${documents.length}` : ''}`}>
