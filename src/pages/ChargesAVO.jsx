@@ -29,7 +29,7 @@ const BREACH_STYLE = {
   ico:  { bg: 'rgba(139,92,246,0.12)', text: '#a78bfa' },
 }
 
-const EMPTY_CHARGE = { charge_number: '', date_of_charge: '', breach_type: '', linked_incident_id: '', plea: '', outcome: '', status: 'pending', notes: '' }
+const EMPTY_CHARGE = { charge_number: '', date_of_charge: '', breach_type: '', linked_incident_id: '', plea: '', outcome: '', status: 'pending', notes: '', fact_sheet_url: '' }
 
 function ChargeForm({ initial = EMPTY_CHARGE, incidents, onSave, onCancel }) {
   const [form, setForm] = useState(initial)
@@ -71,6 +71,8 @@ function ChargeForm({ initial = EMPTY_CHARGE, incidents, onSave, onCancel }) {
         className={`${IC} resize-none`} style={IS} />
       <textarea rows={2} placeholder="Notes" value={form.notes} onChange={e => set('notes', e.target.value)}
         className={`${IC} resize-none`} style={IS} />
+      <input type="url" placeholder="Fact sheet URL (optional)" value={form.fact_sheet_url} onChange={e => set('fact_sheet_url', e.target.value)}
+        className={IC} style={IS} />
       {error && <p className="text-xs text-red-400">{error}</p>}
       <div className="flex gap-2 justify-end">
         <button onClick={onCancel} className="px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-slate-200 border"
@@ -138,6 +140,12 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, canUpload, onEdit,
         )}
         {charge.notes && (
           <p className="text-xs text-slate-500 leading-relaxed">{charge.notes}</p>
+        )}
+        {charge.fact_sheet_url && (
+          <a href={charge.fact_sheet_url} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+            <FileText size={11} /> Fact sheet
+          </a>
         )}
       </div>
 
@@ -363,6 +371,7 @@ export default function ChargesAVO() {
       outcome:            form.outcome || null,
       status:             form.status,
       notes:              form.notes || null,
+      fact_sheet_url:     form.fact_sheet_url || null,
     }
     if (editingCharge) {
       const { data } = await supabase.from('charges').update(payload).eq('id', editingCharge.id).select().single()
