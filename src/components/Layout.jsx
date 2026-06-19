@@ -2,14 +2,7 @@ import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, AlertTriangle, Users, Briefcase, FileText, Settings, LogOut, Shield, UserCircle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions, ROLE_LABELS, ROLE_STYLES } from '../hooks/usePermissions'
-
-const navItems = [
-  { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { to: '/incidents', label: 'Incidents', icon: AlertTriangle },
-  { to: '/people',    label: 'People',    icon: Users },
-  { to: '/cases',     label: 'Cases',     icon: Briefcase },
-  { to: '/documents', label: 'Documents', icon: FileText },
-]
+import { useAppSettings } from '../hooks/useAppSettings'
 
 function NavItem({ to, label, icon: Icon, exact, mobile }) {
   const base = mobile
@@ -33,7 +26,16 @@ function NavItem({ to, label, icon: Icon, exact, mobile }) {
 export default function Layout() {
   const { userCode, displayName, signOut } = useAuth()
   const { role, can } = usePermissions()
+  const { settings } = useAppSettings()
   const navigate = useNavigate()
+
+  const navItems = [
+    { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
+    { to: '/incidents', label: 'Incidents', icon: AlertTriangle,   show: settings.feature_incidents !== false },
+    { to: '/people',    label: 'People',    icon: Users,           show: settings.feature_people !== false },
+    { to: '/cases',     label: 'Cases',     icon: Briefcase,       show: settings.feature_cases !== false },
+    { to: '/documents', label: 'Documents', icon: FileText,        show: settings.feature_documents !== false },
+  ].filter(item => item.show !== false)
 
   const handleSignOut = async () => {
     await signOut()
