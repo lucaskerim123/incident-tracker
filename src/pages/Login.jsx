@@ -71,6 +71,12 @@ export default function Login() {
     if (regPassword !== regConfirm) { setRegError("Passwords don't match."); return }
     if (regPassword.length < 6) { setRegError('Minimum 6 characters.'); return }
     setRegLoading(true); setRegError('')
+    const { data: isOpen } = await supabase.rpc('is_registration_open')
+    if (isOpen === false) {
+      setRegError('Registration is currently closed. Please contact the administrator.')
+      setRegLoading(false)
+      return
+    }
     const { data, error } = await supabase.auth.signUp({
       email: regEmail.trim().toLowerCase(),
       password: regPassword,

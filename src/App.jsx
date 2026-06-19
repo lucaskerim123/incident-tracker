@@ -17,6 +17,11 @@ import CaseStatus from './pages/CaseStatus'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
 import Admin from './pages/Admin'
+import AdminOverview from './pages/admin/Overview'
+import UserManagement from './pages/admin/UserManagement'
+import SuspendBan from './pages/admin/SuspendBan'
+import BanList from './pages/admin/BanList'
+import AdminSettings from './pages/admin/AdminSettings'
 
 function RequireViewAdmin({ children }) {
   const { can } = usePermissions()
@@ -53,7 +58,13 @@ function AppRoutes() {
         <Route path="cases" element={<CaseStatus />} />
         <Route path="documents" element={<Documents />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="admin" element={<RequireViewAdmin><Admin /></RequireViewAdmin>} />
+        <Route path="admin" element={<RequireViewAdmin><Admin /></RequireViewAdmin>}>
+          <Route index element={<AdminOverview />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="suspend" element={<SuspendBan />} />
+          <Route path="bans" element={<BanList />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
