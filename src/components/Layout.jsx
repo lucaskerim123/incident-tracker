@@ -33,7 +33,7 @@ export default function Layout() {
     { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { to: '/incidents', label: 'Incidents', icon: AlertTriangle,   show: settings.feature_incidents !== false },
     { to: '/people',    label: 'People',    icon: Users,           show: settings.feature_people !== false },
-    { to: '/cases',     label: 'Cases',     icon: Briefcase,       show: settings.feature_cases !== false },
+    { to: '/charges',   label: 'Charges / AVO', icon: Briefcase,   show: settings.feature_cases !== false },
     { to: '/documents', label: 'Documents', icon: FileText,        show: settings.feature_documents !== false },
   ].filter(item => item.show !== false)
 

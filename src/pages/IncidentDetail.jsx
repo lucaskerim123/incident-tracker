@@ -43,6 +43,7 @@ export default function IncidentDetail() {
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
   const [linkedCase, setLinkedCase] = useState(null)
+  const [linkedCharge, setLinkedCharge] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -72,6 +73,10 @@ export default function IncidentDetail() {
       if (incRes.data.linked_case_id) {
         supabase.from('cases').select('charge, case_number').eq('id', incRes.data.linked_case_id).single()
           .then(({ data }) => setLinkedCase(data))
+      }
+      if (incRes.data.linked_charge_id) {
+        supabase.from('charges').select('charge_number, status, breach_type').eq('id', incRes.data.linked_charge_id).single()
+          .then(({ data }) => setLinkedCharge(data))
       }
     })
   }, [id])
@@ -210,10 +215,21 @@ export default function IncidentDetail() {
           </Field>
         )}
 
-        {/* Linked Case */}
+        {/* Linked Case (legacy) */}
         {linkedCase && (
           <Field label="Linked Case">
             <p className="text-sm text-slate-300">{linkedCase.charge || linkedCase.case_number}</p>
+          </Field>
+        )}
+
+        {/* Linked Charge */}
+        {linkedCharge && (
+          <Field label="Linked Charge">
+            <p className="text-sm text-slate-300">
+              {linkedCharge.charge_number || 'Charge'}
+              {linkedCharge.breach_type && ` · Breach of ${linkedCharge.breach_type.toUpperCase()}`}
+              {linkedCharge.status && ` · ${linkedCharge.status}`}
+            </p>
           </Field>
         )}
 
