@@ -155,7 +155,7 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, canUpload, onEdit,
                 <FileText size={11} /> Fact sheet
               </a>
             )}
-            {cardDocs.map(d => <DocumentViewer key={d.id} doc={d} />)}
+            {cardDocs.map(d => <DocumentViewer key={d.id} doc={d} compact />)}
             {canUpload && (
               <>
                 <input ref={fileRef} type="file" className="hidden" onChange={e => uploadFile(e.target.files?.[0])} />
