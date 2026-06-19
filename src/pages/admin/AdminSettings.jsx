@@ -121,7 +121,7 @@ export default function AdminSettings() {
           {[
             { key: 'feature_incidents', label: 'Incidents',  desc: 'Incident log and timeline' },
             { key: 'feature_people',    label: 'People',     desc: 'Person profiles and relationships' },
-            { key: 'feature_cases',     label: 'Cases',      desc: 'Legal cases and court dates' },
+            { key: 'feature_cases',     label: 'Charges / AVO', desc: 'Charges and court orders (AVO, ICO, CCO)' },
             { key: 'feature_documents', label: 'Documents',  desc: 'File uploads and document links' },
           ].map(({ key, label, desc }) => (
             <div key={key} className="flex items-center justify-between gap-4 p-3 rounded-lg" style={{ background: '#0f1117' }}>

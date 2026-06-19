@@ -13,7 +13,7 @@ import AddIncident from './pages/AddIncident'
 import EditIncident from './pages/EditIncident'
 import People from './pages/People'
 import PersonDetail from './pages/PersonDetail'
-import CaseStatus from './pages/CaseStatus'
+import ChargesAVO from './pages/ChargesAVO'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
 import Admin from './pages/Admin'
@@ -55,7 +55,7 @@ function AppRoutes() {
         <Route path="incidents/:id/edit" element={<EditIncident />} />
         <Route path="people" element={<People />} />
         <Route path="people/:id" element={<PersonDetail />} />
-        <Route path="cases" element={<CaseStatus />} />
+        <Route path="charges" element={<ChargesAVO />} />
         <Route path="documents" element={<Documents />} />
         <Route path="settings" element={<Settings />} />
         <Route path="admin" element={<RequireViewAdmin><Admin /></RequireViewAdmin>}>

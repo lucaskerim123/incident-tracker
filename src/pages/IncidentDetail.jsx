@@ -43,6 +43,7 @@ export default function IncidentDetail() {
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
   const [linkedCase, setLinkedCase] = useState(null)
+  const [linkedCharge, setLinkedCharge] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -72,6 +73,10 @@ export default function IncidentDetail() {
       if (incRes.data.linked_case_id) {
         supabase.from('cases').select('charge, case_number').eq('id', incRes.data.linked_case_id).single()
           .then(({ data }) => setLinkedCase(data))
+      }
+      if (incRes.data.linked_charge_id) {
+        supabase.from('charges').select('charge_number, status, breach_type').eq('id', incRes.data.linked_charge_id).single()
+          .then(({ data }) => setLinkedCharge(data))
       }
     })
   }, [id])
@@ -210,10 +215,21 @@ export default function IncidentDetail() {
           </Field>
         )}
 
-        {/* Linked Case */}
+        {/* Linked Case (legacy) */}
         {linkedCase && (
           <Field label="Linked Case">
             <p className="text-sm text-slate-300">{linkedCase.charge || linkedCase.case_number}</p>
+          </Field>
+        )}
+
+        {/* Linked Charge */}
+        {linkedCharge && (
+          <Field label="Linked Charge">
+            <p className="text-sm text-slate-300">
+              {linkedCharge.charge_number || 'Charge'}
+              {linkedCharge.breach_type && ` · Breach of ${linkedCharge.breach_type.toUpperCase()}`}
+              {linkedCharge.status && ` · ${linkedCharge.status}`}
+            </p>
           </Field>
         )}
 
@@ -230,14 +246,16 @@ export default function IncidentDetail() {
           </div>
         )}
 
-        {/* Evidence Notes */}
-        {incident.evidence_notes && (
-          <Field label="Evidence Notes">
-            <div className="flex gap-2">
-              <FileText size={13} className="text-slate-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{incident.evidence_notes}</p>
+        {/* Evidence Notes — restricted: editor / lawyer / admin only */}
+        {incident.evidence_notes && can.viewSensitiveNotes && (
+          <div className="mb-4 p-3 rounded-lg border" style={{ background: 'rgba(234,179,8,0.05)', borderColor: 'rgba(234,179,8,0.2)' }}>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <FileText size={12} className="text-amber-400/70" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-500/70">Evidence Notes</h3>
+              <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded font-semibold text-amber-500/60" style={{ background: 'rgba(234,179,8,0.12)' }}>RESTRICTED</span>
             </div>
-          </Field>
+            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{incident.evidence_notes}</p>
+          </div>
         )}
 
         {/* People Involved */}

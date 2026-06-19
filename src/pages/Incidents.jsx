@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
 import IncidentCard from '../components/IncidentCard'
+import IncidentDrawer from '../components/IncidentDrawer'
 
 const FILTERS = [
   { value: 'all',           label: 'All' },
@@ -28,6 +29,7 @@ export default function Incidents() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [selectedId, setSelectedId] = useState(null)
 
   useEffect(() => {
     if (!user) return
@@ -73,7 +75,7 @@ export default function Incidents() {
         )}
       </div>
 
-      {/* Search + Filter */}
+      {/* Search + Filter toggle */}
       <div className="flex gap-2 mb-3">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
@@ -134,7 +136,14 @@ export default function Incidents() {
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-slate-500 mb-1">{filtered.length} incident{filtered.length !== 1 ? 's' : ''}</p>
-          {filtered.map(i => <IncidentCard key={i.id} incident={i} onStatusChange={can.edit ? handleStatusChange : null} />)}
+          {filtered.map(i => (
+            <IncidentCard
+              key={i.id}
+              incident={i}
+              onStatusChange={can.edit ? handleStatusChange : null}
+              onClick={() => setSelectedId(i.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -144,6 +153,13 @@ export default function Incidents() {
           style={{ background: '#6366f1' }}>
           <Plus size={22} className="text-white" />
         </button>
+      )}
+
+      {selectedId && (
+        <IncidentDrawer
+          incidentId={selectedId}
+          onClose={() => setSelectedId(null)}
+        />
       )}
     </div>
   )
