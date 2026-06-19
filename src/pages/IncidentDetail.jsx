@@ -230,14 +230,16 @@ export default function IncidentDetail() {
           </div>
         )}
 
-        {/* Evidence Notes */}
-        {incident.evidence_notes && (
-          <Field label="Evidence Notes">
-            <div className="flex gap-2">
-              <FileText size={13} className="text-slate-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{incident.evidence_notes}</p>
+        {/* Evidence Notes — restricted: editor / lawyer / admin only */}
+        {incident.evidence_notes && can.viewSensitiveNotes && (
+          <div className="mb-4 p-3 rounded-lg border" style={{ background: 'rgba(234,179,8,0.05)', borderColor: 'rgba(234,179,8,0.2)' }}>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <FileText size={12} className="text-amber-400/70" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-500/70">Evidence Notes</h3>
+              <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded font-semibold text-amber-500/60" style={{ background: 'rgba(234,179,8,0.12)' }}>RESTRICTED</span>
             </div>
-          </Field>
+            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{incident.evidence_notes}</p>
+          </div>
         )}
 
         {/* People Involved */}
