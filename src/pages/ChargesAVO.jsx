@@ -93,56 +93,46 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, onClick, onEdit, o
   const br = charge.breach_type ? BREACH_STYLE[charge.breach_type] : null
 
   return (
-    <button onClick={onClick} className="w-full text-left rounded-xl border p-4 hover:border-indigo-500/40 transition-all group"
+    <button onClick={onClick} className="w-full text-left rounded-xl p-4 border hover:border-indigo-500/40 transition-all group"
       style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-      {/* Charge number + date */}
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <span className="text-base font-mono font-bold text-slate-100 group-hover:text-indigo-300 transition-colors leading-tight">
-          {charge.charge_number || '—'}
-        </span>
-        {charge.date_of_charge && (
-          <time className="text-xs text-slate-500 shrink-0 mt-0.5">{format(new Date(charge.date_of_charge), 'd MMM yyyy')}</time>
-        )}
-      </div>
 
-      {/* Badges */}
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        <span style={{ ...st, padding: '2px 7px', fontSize: 10, borderRadius: 4, fontWeight: 600 }}>{charge.status}</span>
-        {br && <span style={{ ...br, padding: '2px 7px', fontSize: 10, borderRadius: 4, fontWeight: 600 }}>{charge.breach_type.toUpperCase()}</span>}
-        {charge.plea && charge.plea !== 'no plea' && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>{charge.plea}</span>
-        )}
-      </div>
-
-      {/* Outcome — one truncated line */}
-      {charge.outcome && (
-        <p className="text-xs text-slate-400 truncate">{charge.outcome}</p>
-      )}
-
-      {/* Footer: doc count + linked incident + actions */}
-      <div className="flex items-center justify-between mt-2.5 pt-2 border-t" style={{ borderColor: '#2a2d3a' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-3">
-          {docs.length > 0 && (
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <FileText size={11} />{docs.length} doc{docs.length !== 1 ? 's' : ''}
+      {/* Row 1: number · status · breach | date */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-mono text-slate-600">{charge.charge_number || '—'}</span>
+          <span style={{ background: st.bg, color: st.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 600 }}>
+            {charge.status}
+          </span>
+          {br && (
+            <span style={{ background: br.bg, color: br.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 600 }}>
+              {charge.breach_type.toUpperCase()}
             </span>
           )}
-          {incidentTitle && (
-            <span className="text-xs text-slate-600 truncate max-w-[160px]">→ {incidentTitle}</span>
-          )}
         </div>
-        {canManage && (
-          <div className="flex gap-0.5">
-            <button onClick={onEdit} className="p-1.5 rounded text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-              <Pencil size={12} />
-            </button>
-            <button onClick={onDelete} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-              <Trash2 size={12} />
-            </button>
-          </div>
+        {charge.date_of_charge && (
+          <time className="text-xs text-slate-500 whitespace-nowrap shrink-0">
+            {format(new Date(charge.date_of_charge), 'd MMM yyyy')}
+          </time>
         )}
       </div>
+
+      {/* Row 2: outcome as title */}
+      <p className="font-semibold text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-300 transition-colors">
+        {charge.outcome || charge.notes || '—'}
+      </p>
+
+      {/* Row 3: plea */}
+      {charge.plea && charge.plea !== 'no plea' && (
+        <p className="text-xs mb-1.5">
+          <span className="text-slate-600">Plea: </span>
+          <span className="text-slate-400 capitalize">{charge.plea}</span>
+        </p>
+      )}
+
+      {/* Row 4: notes clipped */}
+      {charge.notes && charge.outcome && (
+        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{charge.notes}</p>
+      )}
     </button>
   )
 }
@@ -372,60 +362,36 @@ function OrderCard({ order, canManage, onClick, onEdit, onDelete }) {
   const expiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
 
   return (
-    <button onClick={onClick} className="w-full text-left rounded-xl border p-4 hover:border-indigo-500/40 transition-all group"
+    <button onClick={onClick} className="w-full text-left rounded-xl p-4 border hover:border-indigo-500/40 transition-all group"
       style={{ background: '#1a1d27', borderColor: expiringSoon ? 'rgba(249,115,22,0.4)' : '#2a2d3a' }}>
 
-      {/* Row 1: type + status badges + expiry */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex flex-wrap gap-1.5">
-          <span style={{ ...ot, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 700 }}>{order.order_type}</span>
-          <span style={{ ...st, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>{order.status}</span>
+      {/* Row 1: type · status | expiry */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <span style={{ background: ot.bg, color: ot.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 700 }}>
+            {order.order_type}
+          </span>
+          <span style={{ background: st.bg, color: st.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 600 }}>
+            {order.status}
+          </span>
         </div>
         {order.expiry_date && (
-          <div className="text-right shrink-0">
-            <time className={`text-xs ${expiringSoon ? 'text-orange-400' : 'text-slate-500'}`}>
-              Expires {format(new Date(order.expiry_date), 'd MMM yyyy')}
-            </time>
-            {expiringSoon && daysLeft > 0 && (
-              <p className="text-[10px] text-orange-400 flex items-center gap-1 justify-end mt-0.5">
-                <AlertCircle size={9} />{daysLeft}d remaining
-              </p>
-            )}
-            {daysLeft === 0 && <p className="text-[10px] text-red-400 mt-0.5">Expires today</p>}
-          </div>
+          <time className={`text-xs whitespace-nowrap shrink-0 ${expiringSoon ? 'text-orange-400' : 'text-slate-500'}`}>
+            {format(new Date(order.expiry_date), 'd MMM yyyy')}
+            {expiringSoon && daysLeft > 0 && ` · ${daysLeft}d`}
+            {daysLeft === 0 && ' · today'}
+          </time>
         )}
       </div>
 
-      {/* Row 2: who vs who */}
-      {(order.protecting_who || order.protected_from) && (
-        <div className="flex items-center gap-2">
-          {order.protecting_who && (
-            <span className="text-sm font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors truncate">
-              {order.protecting_who}
-            </span>
-          )}
-          {order.protecting_who && order.protected_from && (
-            <span className="text-xs text-slate-600 shrink-0">vs</span>
-          )}
-          {order.protected_from && (
-            <span className="text-sm font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors truncate">
-              {order.protected_from}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Row 2: who vs who as title */}
+      <p className="font-semibold text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-300 transition-colors">
+        {[order.protecting_who, order.protected_from].filter(Boolean).join(' vs ') || '—'}
+      </p>
 
-      {/* Footer: edit/delete for managers */}
-      {canManage && (
-        <div className="flex justify-end gap-0.5 mt-2.5 pt-2 border-t" style={{ borderColor: '#2a2d3a' }}
-          onClick={e => e.stopPropagation()}>
-          <button onClick={onEdit} className="p-1.5 rounded text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-            <Pencil size={12} />
-          </button>
-          <button onClick={onDelete} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-            <Trash2 size={12} />
-          </button>
-        </div>
+      {/* Row 3: conditions clipped */}
+      {order.conditions && (
+        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{order.conditions}</p>
       )}
     </button>
   )
