@@ -365,15 +365,18 @@ function OrderForm({ initial = EMPTY_ORDER, onSave, onCancel }) {
   )
 }
 
-function OrderCard({ order, canManage, onEdit, onDelete }) {
-  const st  = ORDER_STATUS_STYLE[order.status]  ?? ORDER_STATUS_STYLE.active
-  const ot  = ORDER_TYPE_STYLE[order.order_type] ?? {}
+function OrderCard({ order, canManage, onClick, onEdit, onDelete }) {
+  const st = ORDER_STATUS_STYLE[order.status] ?? ORDER_STATUS_STYLE.active
+  const ot = ORDER_TYPE_STYLE[order.order_type] ?? {}
   const daysLeft = order.expiry_date ? differenceInDays(new Date(order.expiry_date), new Date()) : null
   const expiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
 
   return (
-    <div className="rounded-xl border p-3.5" style={{ background: '#1a1d27', borderColor: expiringSoon ? 'rgba(249,115,22,0.4)' : '#2a2d3a' }}>
-      <div className="flex items-start justify-between gap-2 mb-2">
+    <button onClick={onClick} className="w-full text-left rounded-xl border p-4 hover:border-indigo-500/40 transition-all group"
+      style={{ background: '#1a1d27', borderColor: expiringSoon ? 'rgba(249,115,22,0.4)' : '#2a2d3a' }}>
+
+      {/* Row 1: type + status badges + expiry */}
+      <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex flex-wrap gap-1.5">
           <span style={{ ...ot, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 700 }}>{order.order_type}</span>
           <span style={{ ...st, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>{order.status}</span>
@@ -393,32 +396,154 @@ function OrderCard({ order, canManage, onEdit, onDelete }) {
         )}
       </div>
 
+      {/* Row 2: who vs who */}
       {(order.protecting_who || order.protected_from) && (
-        <div className="flex items-center gap-2 mb-2 text-sm">
-          {order.protecting_who && <span className="text-slate-300">{order.protecting_who}</span>}
-          {order.protecting_who && order.protected_from && <span className="text-slate-600">vs</span>}
-          {order.protected_from && <span className="text-slate-300">{order.protected_from}</span>}
+        <div className="flex items-center gap-2">
+          {order.protecting_who && (
+            <span className="text-sm font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors truncate">
+              {order.protecting_who}
+            </span>
+          )}
+          {order.protecting_who && order.protected_from && (
+            <span className="text-xs text-slate-600 shrink-0">vs</span>
+          )}
+          {order.protected_from && (
+            <span className="text-sm font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors truncate">
+              {order.protected_from}
+            </span>
+          )}
         </div>
       )}
 
-      {order.conditions && (
-        <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed mb-2">{order.conditions}</p>
-      )}
-      {order.notes && (
-        <p className="text-xs text-slate-500 leading-relaxed">{order.notes}</p>
-      )}
-
+      {/* Footer: edit/delete for managers */}
       {canManage && (
-        <div className="flex justify-end gap-0.5 mt-2">
+        <div className="flex justify-end gap-0.5 mt-2.5 pt-2 border-t" style={{ borderColor: '#2a2d3a' }}
+          onClick={e => e.stopPropagation()}>
           <button onClick={onEdit} className="p-1.5 rounded text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-            <Pencil size={13} />
+            <Pencil size={12} />
           </button>
           <button onClick={onDelete} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-            <Trash2 size={13} />
+            <Trash2 size={12} />
           </button>
         </div>
       )}
-    </div>
+    </button>
+  )
+}
+
+function OrderDrawer({ order, canManage, onClose, onEdit, onDelete }) {
+  const st = ORDER_STATUS_STYLE[order.status] ?? ORDER_STATUS_STYLE.active
+  const ot = ORDER_TYPE_STYLE[order.order_type] ?? {}
+  const daysLeft = order.expiry_date ? differenceInDays(new Date(order.expiry_date), new Date()) : null
+  const expiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-50 flex flex-col w-full sm:w-[500px] lg:w-[560px]"
+        style={{ background: '#0f1117', borderLeft: '1px solid #2a2d3a' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: '#2a2d3a' }}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span style={{ ...ot, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 700 }}>{order.order_type}</span>
+            <span style={{ ...st, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>{order.status}</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            {canManage && (
+              <>
+                <button onClick={() => { onClose(); onEdit() }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+                  <Pencil size={12} /> Edit
+                </button>
+                <button onClick={() => { onClose(); onDelete() }}
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+            <button onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/5 transition-colors ml-1">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 pb-10">
+          {/* Who vs who */}
+          {(order.protecting_who || order.protected_from) && (
+            <div className="mb-5">
+              <div className="flex items-center gap-3 flex-wrap">
+                {order.protecting_who && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Protected</p>
+                    <p className="text-xl font-bold text-slate-100">{order.protecting_who}</p>
+                  </div>
+                )}
+                {order.protecting_who && order.protected_from && (
+                  <span className="text-slate-600 text-lg font-light mt-4">vs</span>
+                )}
+                {order.protected_from && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Defendant</p>
+                    <p className="text-xl font-bold text-slate-100">{order.protected_from}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Expiry */}
+          {order.expiry_date && (
+            <div className="flex items-center gap-2 mb-5 pb-5 border-b" style={{ borderColor: '#2a2d3a' }}>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Expiry Date</p>
+                <p className={`text-sm font-medium ${expiringSoon ? 'text-orange-400' : 'text-slate-300'}`}>
+                  {format(new Date(order.expiry_date), 'd MMMM yyyy')}
+                </p>
+              </div>
+              {expiringSoon && daysLeft > 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded ml-2"
+                  style={{ background: 'rgba(249,115,22,0.12)', color: '#fb923c' }}>
+                  <AlertCircle size={9} />{daysLeft}d remaining
+                </span>
+              )}
+              {daysLeft === 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded ml-2"
+                  style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171' }}>
+                  Expires today
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Conditions */}
+          {order.conditions && (
+            <div className="mb-5">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Conditions</h3>
+              <div className="p-3 rounded-lg border-l-2 border-indigo-500" style={{ background: '#1a1d27' }}>
+                <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{order.conditions}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {order.notes && (
+            <div>
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Notes</h3>
+              <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed">{order.notes}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -444,6 +569,7 @@ export default function ChargesAVO() {
   const [orders, setOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [showOrderForm, setShowOrderForm] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState(null)
   const [editingOrder, setEditingOrder] = useState(null)
   const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(null)
   const [orderSearch, setOrderSearch] = useState('')
@@ -688,6 +814,7 @@ export default function ChargesAVO() {
                     key={o.id}
                     order={o}
                     canManage={can.manageCases}
+                    onClick={() => setSelectedOrder(o)}
                     onEdit={() => setEditingOrder(o)}
                     onDelete={() => setConfirmDeleteOrder(o.id)}
                   />
@@ -726,6 +853,16 @@ export default function ChargesAVO() {
           onClose={() => setSelectedCharge(null)}
           onEdit={() => { setSelectedCharge(null); setEditingCharge(selectedCharge) }}
           onDelete={() => { setSelectedCharge(null); setConfirmDeleteCharge(selectedCharge.id) }}
+        />
+      )}
+
+      {selectedOrder && (
+        <OrderDrawer
+          order={selectedOrder}
+          canManage={can.manageCases}
+          onClose={() => setSelectedOrder(null)}
+          onEdit={() => { setSelectedOrder(null); setEditingOrder(selectedOrder) }}
+          onDelete={() => { setSelectedOrder(null); setConfirmDeleteOrder(selectedOrder.id) }}
         />
       )}
     </div>
