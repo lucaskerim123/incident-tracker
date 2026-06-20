@@ -1,16 +1,48 @@
-# React + Vite
+# Incident Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A private case management web app for tracking incidents, charges, court orders, and legal documents.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend**: React 19 + Vite, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **Hosting**: Vercel
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Incidents** — Log and track incidents with dates, descriptions, severity, and linked evidence
+- **Charges / AVO** — Track criminal charges (status, plea, conviction) and court orders (AVO, ICO, CCO) with expiry alerts
+- **Documents** — Upload and manage legal documents; attach to incidents, charges, or cases
+- **Cases** — Group related incidents and documents into case files
+- **Admin** — User management, role permissions, registration control, ban list
 
-## Expanding the ESLint configuration
+## Roles
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Role | Access |
+|------|--------|
+| Admin | Full access including user management |
+| Manager | Create/edit/delete all records |
+| Viewer | Read-only access |
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+Requires a `.env.local` file:
+
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+## Database
+
+Migrations are in `supabase/migrations/`. Run them in order against your Supabase project.
+
+## Branch Structure
+
+- `main` — production
+- `Development` — staging / feature testing (separate environment)
