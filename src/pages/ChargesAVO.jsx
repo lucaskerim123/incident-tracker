@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { format, differenceInDays } from 'date-fns'
 import { Plus, Pencil, Trash2, X, Search, Upload, FileText, AlertCircle, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
@@ -12,15 +13,19 @@ const IS = { background: '#0f1117', borderColor: '#2a2d3a' }
 
 // ─── Charges ────────────────────────────────────────────────────────────────
 
-const CHARGE_STATUS  = ['pending', 'adjourned', 'finalised', 'withdrawn']
-const BREACH_TYPES   = ['avo', 'bail', 'ico']
-const PLEA_OPTIONS   = ['no plea', 'guilty', 'not guilty']
+const CHARGE_STATUS     = ['active', 'withdrawn', 'closed']
+const BREACH_TYPES      = ['avo', 'bail', 'ico']
+const PLEA_OPTIONS      = ['no plea', 'guilty', 'not guilty']
+const CONVICTION_OPTIONS = ['convicted', 'not convicted']
 
 const CHARGE_STATUS_STYLE = {
-  pending:    { bg: 'rgba(249,115,22,0.12)',  text: '#fb923c' },
-  adjourned:  { bg: 'rgba(234,179,8,0.12)',   text: '#eab308' },
-  finalised:  { bg: 'rgba(16,185,129,0.12)',  text: '#34d399' },
-  withdrawn:  { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
+  active:    { bg: 'rgba(16,185,129,0.12)',  text: '#34d399' },
+  withdrawn: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
+  closed:    { bg: 'rgba(100,116,139,0.12)', text: '#64748b' },
+  // legacy fallbacks
+  pending:   { bg: 'rgba(249,115,22,0.12)',  text: '#fb923c' },
+  adjourned: { bg: 'rgba(234,179,8,0.12)',   text: '#eab308' },
+  finalised: { bg: 'rgba(16,185,129,0.12)',  text: '#34d399' },
 }
 
 const BREACH_STYLE = {
@@ -29,7 +34,7 @@ const BREACH_STYLE = {
   ico:  { bg: 'rgba(139,92,246,0.12)', text: '#a78bfa' },
 }
 
-const EMPTY_CHARGE = { charge_number: '', date_of_charge: '', breach_type: '', linked_incident_id: '', plea: '', outcome: '', status: 'pending', notes: '', fact_sheet_url: '' }
+const EMPTY_CHARGE = { charge_number: '', date_of_charge: '', breach_type: '', linked_incident_id: '', plea: '', outcome: '', status: 'active', conviction_status: '', notes: '', fact_sheet_url: '' }
 
 function ChargeForm({ initial = EMPTY_CHARGE, incidents, onSave, onCancel }) {
   const [form, setForm] = useState(initial)
@@ -56,9 +61,15 @@ function ChargeForm({ initial = EMPTY_CHARGE, incidents, onSave, onCancel }) {
           {BREACH_TYPES.map(b => <option key={b} value={b}>{b.toUpperCase()}</option>)}
         </select>
         <select value={form.status} onChange={e => set('status', e.target.value)} className={IC} style={IS}>
-          {CHARGE_STATUS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+          <option value="active">Active</option>
+          <option value="withdrawn">Withdrawn</option>
+          <option value="closed">Closed (not enforced)</option>
         </select>
       </div>
+      <select value={form.conviction_status} onChange={e => set('conviction_status', e.target.value)} className={IC} style={IS}>
+        <option value="">No conviction status</option>
+        {CONVICTION_OPTIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+      </select>
       <select value={form.plea} onChange={e => set('plea', e.target.value)} className={IC} style={IS}>
         <option value="">No plea recorded</option>
         {PLEA_OPTIONS.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
@@ -88,9 +99,15 @@ function ChargeForm({ initial = EMPTY_CHARGE, incidents, onSave, onCancel }) {
   )
 }
 
+const CONVICTION_STYLE = {
+  convicted:     { bg: 'rgba(239,68,68,0.12)',   text: '#f87171' },
+  'not convicted': { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
+}
+
 function ChargeCard({ charge, incidentTitle, docs, canManage, onClick, onEdit, onDelete }) {
-  const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.pending
+  const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.active
   const br = charge.breach_type ? BREACH_STYLE[charge.breach_type] : null
+  const cv = charge.conviction_status ? CONVICTION_STYLE[charge.conviction_status] : null
 
   return (
     <button onClick={onClick} className="w-full text-left rounded-xl p-4 border hover:border-indigo-500/40 transition-all group"
@@ -99,7 +116,9 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, onClick, onEdit, o
       {/* Row 1: number · status · breach | date */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-mono text-slate-600">{charge.charge_number || '—'}</span>
+          <span className="text-sm font-mono font-bold text-slate-200 group-hover:text-indigo-300 transition-colors">
+            {charge.charge_number || '—'}
+          </span>
           <span style={{ background: st.bg, color: st.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 600 }}>
             {charge.status}
           </span>
@@ -116,29 +135,31 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, onClick, onEdit, o
         )}
       </div>
 
-      {/* Row 2: outcome as title */}
-      <p className="font-semibold text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-300 transition-colors">
-        {charge.outcome || charge.notes || '—'}
-      </p>
-
-      {/* Row 3: plea */}
-      {charge.plea && charge.plea !== 'no plea' && (
-        <p className="text-xs mb-1.5">
-          <span className="text-slate-600">Plea: </span>
-          <span className="text-slate-400 capitalize">{charge.plea}</span>
-        </p>
+      {/* Row 2: conviction badge (only if set) */}
+      {cv && (
+        <div className="mb-1.5">
+          <span style={{ background: cv.bg, color: cv.text, padding: '2px 8px', fontSize: 10, borderRadius: 5, fontWeight: 700 }}>
+            {charge.conviction_status.charAt(0).toUpperCase() + charge.conviction_status.slice(1)}
+          </span>
+        </div>
       )}
 
-      {/* Row 4: notes clipped */}
-      {charge.notes && charge.outcome && (
-        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{charge.notes}</p>
+      {/* Row 3: notes as description (clipped 2 lines) */}
+      {charge.notes && (
+        <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mb-1">{charge.notes}</p>
+      )}
+
+      {/* Row 4: outcome (muted, 1 line) */}
+      {charge.outcome && (
+        <p className="text-xs text-slate-600 truncate">{charge.outcome}</p>
       )}
     </button>
   )
 }
 
 function ChargeDrawer({ charge, incidentTitle, initialDocs, canManage, canUpload, userId, onClose, onEdit, onDelete }) {
-  const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.pending
+  const navigate = useNavigate()
+  const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.active
   const br = charge.breach_type ? BREACH_STYLE[charge.breach_type] : null
   const [docs, setDocs] = useState(initialDocs)
   const [uploading, setUploading] = useState(false)
@@ -207,7 +228,7 @@ function ChargeDrawer({ charge, incidentTitle, initialDocs, canManage, canUpload
           )}
 
           {/* Meta row */}
-          {(charge.plea || incidentTitle) && (
+          {(charge.plea || charge.conviction_status || incidentTitle) && (
             <div className="flex flex-wrap gap-4 mb-5 pb-5 border-b" style={{ borderColor: '#2a2d3a' }}>
               {charge.plea && (
                 <div>
@@ -215,10 +236,25 @@ function ChargeDrawer({ charge, incidentTitle, initialDocs, canManage, canUpload
                   <p className="text-sm text-slate-300 capitalize">{charge.plea}</p>
                 </div>
               )}
+              {charge.conviction_status && (() => {
+                const cv = CONVICTION_STYLE[charge.conviction_status]
+                return (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Conviction</p>
+                    <span style={{ background: cv?.bg, color: cv?.text, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 700 }}>
+                      {charge.conviction_status.charAt(0).toUpperCase() + charge.conviction_status.slice(1)}
+                    </span>
+                  </div>
+                )
+              })()}
               {incidentTitle && (
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Linked Incident</p>
-                  <p className="text-sm text-slate-300">{incidentTitle}</p>
+                  <button
+                    onClick={() => { onClose(); navigate(`/incidents/${charge.linked_incident_id}`) }}
+                    className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors text-left underline underline-offset-2">
+                    {incidentTitle}
+                  </button>
                 </div>
               )}
             </div>
@@ -574,6 +610,7 @@ export default function ChargesAVO() {
       plea:               form.plea || null,
       outcome:            form.outcome || null,
       status:             form.status,
+      conviction_status:  form.conviction_status || null,
       notes:              form.notes || null,
       fact_sheet_url:     form.fact_sheet_url || null,
     }
