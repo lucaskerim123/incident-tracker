@@ -161,13 +161,21 @@ export default function IncidentDetail() {
 
       {/* Main card */}
       <div className="rounded-xl p-5 border mb-3" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-        {/* ID chip */}
-        <button onClick={copyId}
-          className="flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-lg text-xs font-mono text-slate-600 hover:text-slate-400 transition-colors"
-          style={{ background: '#0f1117' }}>
-          {idCopied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
-          {id}
-        </button>
+        {/* ID chip + incident number */}
+        <div className="flex items-center gap-2 mb-3">
+          <button onClick={copyId}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono text-slate-600 hover:text-slate-400 transition-colors"
+            style={{ background: '#0f1117' }}>
+            {idCopied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+            {id}
+          </button>
+          {incident.incident_number && (
+            <span className="flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-semibold text-slate-400"
+              style={{ background: '#0f1117' }}>
+              <Hash size={10} className="text-slate-600" />#{incident.incident_number}
+            </span>
+          )}
+        </div>
 
         {/* Badges + date */}
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -203,6 +211,13 @@ export default function IncidentDetail() {
             <Hash size={14} className="text-slate-500" />
             <span className="text-xs font-mono text-slate-300">{incident.reference_number}</span>
           </div>
+        )}
+
+        {/* Plea */}
+        {incident.plea && (
+          <Field label="Plea">
+            <p className="text-sm text-slate-300 capitalize">{incident.plea}</p>
+          </Field>
         )}
 
         {/* Location */}

@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
-import { X, Pencil, Check } from 'lucide-react'
+import { X, Pencil, Check, ShieldOff } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
+import { usePermissions } from '../../hooks/usePermissions'
 
 export default function BanList() {
+  const { can } = usePermissions()
   const [banList, setBanList] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [editReason, setEditReason] = useState('')
   const [editLoading, setEditLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     supabase.from('ban_list').select('id, type, value, reason, banned_by, created_at').eq('is_active', true).order('created_at', { ascending: false })
@@ -25,8 +28,9 @@ export default function BanList() {
   }, [])
 
   const removeBan = async (banId) => {
+    setActionError('')
     const { error } = await supabase.rpc('remove_ban', { p_id: banId })
-    if (error) { alert(`Failed: ${error.message}`); return }
+    if (error) { setActionError(`Failed to remove ban: ${error.message}`); return }
     setBanList(b => b.filter(x => x.id !== banId))
   }
 
@@ -36,16 +40,23 @@ export default function BanList() {
   }
 
   const saveEdit = async (banId) => {
-    setEditLoading(true)
+    setEditLoading(true); setActionError('')
     const { error } = await supabase.from('ban_list').update({ reason: editReason.trim() || null }).eq('id', banId)
     setEditLoading(false)
-    if (error) { alert(`Failed: ${error.message}`); return }
+    if (error) { setActionError(`Failed to update reason: ${error.message}`); return }
     setBanList(b => b.map(x => x.id === banId ? { ...x, reason: editReason.trim() || null } : x))
     setEditingId(null)
   }
 
   const typeBg = { ip: 'rgba(239,68,68,0.12)', email: 'rgba(234,179,8,0.12)', user: 'rgba(99,102,241,0.12)' }
   const typeColor = { ip: '#f87171', email: '#eab308', user: '#818cf8' }
+
+  if (!can.manageUsers) return (
+    <div className="p-4 max-w-2xl mx-auto text-center py-20">
+      <ShieldOff size={32} className="text-slate-600 mx-auto mb-3" />
+      <p className="text-sm text-slate-500">You do not have permission to view this page.</p>
+    </div>
+  )
 
   return (
     <div className="p-4 max-w-2xl mx-auto pb-8">
@@ -56,6 +67,11 @@ export default function BanList() {
           Live
         </span>
       </div>
+      {actionError && (
+        <div className="mb-3 p-3 rounded-lg text-xs text-red-300 border" style={{ background: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.25)' }}>
+          {actionError}
+        </div>
+      )}
 
       <div className="rounded-xl border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
         {loading ? (

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import {
   ArrowLeft, Pencil, Calendar, Scale, ExternalLink, Lock, Check,
-  Link2, Trash2, Plus, ChevronRight, FileText, AlertCircle,
+  Link2, Trash2, Plus, ChevronRight, FileText, AlertCircle, Gavel, ShieldAlert,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { usePermissions } from '../hooks/usePermissions'
@@ -55,6 +55,9 @@ export default function PersonDetail() {
 
   // Incidents
   const [incidents, setIncidents] = useState([])
+  // Charges & court orders
+  const [personCharges, setPersonCharges] = useState([])
+  const [personOrders, setPersonOrders] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -74,7 +77,7 @@ export default function PersonDetail() {
 
       if (!p) return
 
-      const [outRes, inRes, incRes] = await Promise.all([
+      const [outRes, inRes, incRes, chargesRes, ordersRes] = await Promise.all([
         supabase.from('person_relationships')
           .select('id, label, to_person_id, people!person_relationships_to_person_id_fkey(id, name)')
           .eq('from_person_id', id)
@@ -87,12 +90,22 @@ export default function PersonDetail() {
           .select('id, date, title, category, severity')
           .contains('people_involved', [p.name])
           .order('date', { ascending: false }),
+        supabase.from('charges')
+          .select('id, charge_number, status, breach_type, date_of_charge, plea, conviction_status')
+          .eq('related_person_id', id)
+          .order('date_of_charge', { ascending: false }),
+        supabase.from('court_orders')
+          .select('id, order_type, status, protecting_who, protected_from, expiry_date')
+          .or(`protecting_who.ilike.%${p.name}%,protected_from.ilike.%${p.name}%`)
+          .order('created_at', { ascending: false }),
       ])
 
       if (cancelled) return
       setOutgoing(outRes.data ?? [])
       setIncoming(inRes.data ?? [])
       setIncidents(incRes.data ?? [])
+      setPersonCharges(chargesRes.data ?? [])
+      setPersonOrders(ordersRes.data ?? [])
     }
 
     load()
@@ -398,7 +411,7 @@ export default function PersonDetail() {
                       <ChevronRight size={11} />
                     </button>
                     <span className="text-xs text-slate-600 shrink-0">{rel.label}</span>
-                    <span className="text-xs text-slate-700 ml-auto shrink-0">backlink</span>
+                    <span className="text-xs text-slate-700 ml-auto shrink-0">linked from</span>
                   </div>
                 ))}
               </div>
@@ -442,6 +455,62 @@ export default function PersonDetail() {
               </div>
             )}
           </div>
+
+          {/* Charges */}
+          {personCharges.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Gavel size={12} className="text-slate-500" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Charges · {personCharges.length}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {personCharges.map(ch => (
+                  <div key={ch.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg"
+                    style={{ background: '#1a1d27', border: '1px solid #2a2d3a' }}>
+                    <span className="text-xs font-mono font-bold text-slate-200">{ch.charge_number || '—'}</span>
+                    {ch.breach_type && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
+                        {ch.breach_type.toUpperCase()}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ml-auto" style={{ background: 'rgba(100,116,139,0.12)', color: '#94a3b8' }}>
+                      {ch.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Court Orders */}
+          {personOrders.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ShieldAlert size={12} className="text-slate-500" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Court Orders · {personOrders.length}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {personOrders.map(o => (
+                  <div key={o.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg"
+                    style={{ background: '#1a1d27', border: '1px solid #2a2d3a' }}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171' }}>
+                      {o.order_type}
+                    </span>
+                    <span className="text-xs text-slate-400 flex-1 truncate">
+                      {[o.protecting_who, o.protected_from].filter(Boolean).join(' vs ')}
+                    </span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'rgba(100,116,139,0.12)', color: '#94a3b8' }}>
+                      {o.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Legal (gated) */}
           {can.viewSensitiveNotes && (person.legal_update || person.legal_notes) && (

@@ -368,10 +368,13 @@ export default function Documents() {
   const [docs, setDocs] = useState([])
   const [cases, setCases] = useState([])
   const [incidents, setIncidents] = useState([])
+  const [charges, setCharges] = useState([])
+  const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [editingDoc, setEditingDoc] = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
+  const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('all')
   const [tab, setTab] = useState('all')
@@ -383,16 +386,22 @@ export default function Documents() {
       supabase.from('documents').select('*').order('created_at', { ascending: false }),
       supabase.from('cases').select('id, charge, case_number').order('court_date', { nullsFirst: false }),
       supabase.from('incidents').select('id, title, date').order('date', { ascending: false }),
-    ]).then(([docsRes, casesRes, incRes]) => {
+      supabase.from('charges').select('id, charge_number, breach_type, status').order('created_at', { ascending: false }),
+      supabase.from('court_orders').select('id, order_type, protecting_who, protected_from, status').order('created_at', { ascending: false }),
+    ]).then(([docsRes, casesRes, incRes, chargesRes, ordersRes]) => {
       setDocs(docsRes.data ?? [])
       setCases(casesRes.data ?? [])
       setIncidents(incRes.data ?? [])
+      setCharges(chargesRes.data ?? [])
+      setOrders(ordersRes.data ?? [])
       setLoading(false)
     })
   }, [user])
 
   const caseMap = Object.fromEntries(cases.map(c => [c.id, c.charge || c.case_number || c.id.slice(0, 8)]))
   const incidentMap = Object.fromEntries(incidents.map(i => [i.id, i.title]))
+  const chargeMap = Object.fromEntries(charges.map(c => [c.id, `${c.charge_number || '—'}${c.breach_type ? ` · ${c.breach_type.toUpperCase()}` : ''}`]))
+  const orderMap = Object.fromEntries(orders.map(o => [o.id, `${o.order_type} · ${[o.protecting_who, o.protected_from].filter(Boolean).join(' vs ') || '—'}`]))
 
   const handleAdded = (newDocs) => setDocs(d => [...newDocs, ...d])
 
@@ -510,6 +519,54 @@ export default function Documents() {
     )
   }
 
+  const renderChargesView = () => {
+    const linked = filtered.filter(d => d.related_charge_id)
+    const unlinked = filtered.filter(d => !d.related_charge_id && !d.related_order_id)
+    const byChargeId = {}
+    linked.forEach(d => {
+      if (!byChargeId[d.related_charge_id]) byChargeId[d.related_charge_id] = []
+      byChargeId[d.related_charge_id].push(d)
+    })
+    const props = { caseMap, incidentMap, onEdit: setEditingDoc, onDelete: setConfirmDel, canEdit: can.upload, canDelete: can.delete, editingId: editingDoc?.id, editComp }
+    return (
+      <>
+        {charges.filter(c => byChargeId[c.id]).map(c => (
+          <GroupSection key={c.id} label={chargeMap[c.id]} docs={byChargeId[c.id] ?? []} {...props} />
+        ))}
+        {unlinked.length > 0 && <GroupSection label="Not linked to a charge" docs={unlinked} {...props} />}
+        {!filtered.length && (
+          <div className="rounded-xl p-10 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+            <p className="text-slate-400 text-sm">No documents match.</p>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  const renderOrdersView = () => {
+    const linked = filtered.filter(d => d.related_order_id)
+    const unlinked = filtered.filter(d => !d.related_order_id && !d.related_charge_id)
+    const byOrderId = {}
+    linked.forEach(d => {
+      if (!byOrderId[d.related_order_id]) byOrderId[d.related_order_id] = []
+      byOrderId[d.related_order_id].push(d)
+    })
+    const props = { caseMap, incidentMap, onEdit: setEditingDoc, onDelete: setConfirmDel, canEdit: can.upload, canDelete: can.delete, editingId: editingDoc?.id, editComp }
+    return (
+      <>
+        {orders.filter(o => byOrderId[o.id]).map(o => (
+          <GroupSection key={o.id} label={orderMap[o.id]} docs={byOrderId[o.id] ?? []} {...props} />
+        ))}
+        {unlinked.length > 0 && <GroupSection label="Not linked to an order" docs={unlinked} {...props} />}
+        {!filtered.length && (
+          <div className="rounded-xl p-10 border text-center" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+            <p className="text-slate-400 text-sm">No documents match.</p>
+          </div>
+        )}
+      </>
+    )
+  }
+
   const renderIncidentsView = () => {
     const linked = filtered.filter(d => d.related_incident_id)
     const unlinked = filtered.filter(d => !d.related_incident_id)
@@ -577,8 +634,8 @@ export default function Documents() {
       </div>
 
       {/* Library tabs */}
-      <div className="flex gap-1 mb-3">
-        {[['all', 'All'], ['cases', 'By Case'], ['incidents', 'By Incident']].map(([key, label]) => (
+      <div className="flex gap-1 flex-wrap mb-3">
+        {[['all', 'All'], ['cases', 'By Case'], ['incidents', 'By Incident'], ['charges', 'By Charge'], ['orders', 'By Order']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === key ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
             style={tab === key ? { background: '#6366f1' } : { background: '#1a1d27', border: '1px solid #2a2d3a' }}>
@@ -598,13 +655,22 @@ export default function Documents() {
         ))}
       </div>
 
+      {error && (
+        <div className="mb-3 p-3 rounded-lg text-xs text-red-300 border" style={{ background: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.25)' }}>
+          {error}
+          <button onClick={() => setError('')} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : tab === 'all' ? renderAllList()
         : tab === 'cases' ? renderCasesView()
-        : renderIncidentsView()
+        : tab === 'incidents' ? renderIncidentsView()
+        : tab === 'charges' ? renderChargesView()
+        : renderOrdersView()
       }
 
       <ConfirmDialog open={!!confirmDel} title="Delete Document"

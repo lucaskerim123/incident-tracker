@@ -565,6 +565,7 @@ export default function ChargesAVO() {
   const [editingCharge, setEditingCharge] = useState(null)
   const [confirmDeleteCharge, setConfirmDeleteCharge] = useState(null)
   const [chargeSearch, setChargeSearch] = useState('')
+  const [chargeStatusFilter, setChargeStatusFilter] = useState('all')
 
   // Orders state
   const [orders, setOrders] = useState([])
@@ -574,6 +575,7 @@ export default function ChargesAVO() {
   const [editingOrder, setEditingOrder] = useState(null)
   const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(null)
   const [orderSearch, setOrderSearch] = useState('')
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all')
 
   useEffect(() => {
     if (!user) return
@@ -664,6 +666,7 @@ export default function ChargesAVO() {
   const incidentMap = Object.fromEntries(incidents.map(i => [i.id, i.title]))
 
   const filteredCharges = charges.filter(c => {
+    if (chargeStatusFilter !== 'all' && c.status !== chargeStatusFilter) return false
     if (!chargeSearch.trim()) return true
     const q = chargeSearch.toLowerCase()
     return (
@@ -676,6 +679,7 @@ export default function ChargesAVO() {
   })
 
   const filteredOrders = orders.filter(o => {
+    if (orderStatusFilter !== 'all' && o.status !== orderStatusFilter) return false
     if (!orderSearch.trim()) return true
     const q = orderSearch.toLowerCase()
     return (
@@ -724,14 +728,27 @@ export default function ChargesAVO() {
             </div>
           )}
 
-          {/* Search */}
+          {/* Search + status filter */}
           {charges.length > 0 && (
-            <div className="relative mb-3">
-              <Search size={14} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
-              <input type="text" placeholder="Search charges…" value={chargeSearch} onChange={e => setChargeSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-lg text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors"
-                style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
-            </div>
+            <>
+              <div className="relative mb-2">
+                <Search size={14} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
+                <input type="text" placeholder="Search charges…" value={chargeSearch} onChange={e => setChargeSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-lg text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors"
+                  style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
+              </div>
+              <div className="flex gap-1.5 mb-3">
+                {['all', 'active', 'withdrawn', 'closed'].map(s => (
+                  <button key={s} onClick={() => setChargeStatusFilter(s)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${chargeStatusFilter === s ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                    style={chargeStatusFilter === s
+                      ? { background: s === 'all' ? '#6366f1' : CHARGE_STATUS_STYLE[s]?.bg ?? '#6366f1', color: s === 'all' ? 'white' : CHARGE_STATUS_STYLE[s]?.text ?? 'white' }
+                      : { background: '#1a1d27', border: '1px solid #2a2d3a' }}>
+                    {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
 
           {chargesLoading ? (
@@ -782,14 +799,27 @@ export default function ChargesAVO() {
             </div>
           )}
 
-          {/* Search */}
+          {/* Search + status filter */}
           {orders.length > 0 && (
-            <div className="relative mb-3">
-              <Search size={14} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
-              <input type="text" placeholder="Search orders…" value={orderSearch} onChange={e => setOrderSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-lg text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors"
-                style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
-            </div>
+            <>
+              <div className="relative mb-2">
+                <Search size={14} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
+                <input type="text" placeholder="Search orders…" value={orderSearch} onChange={e => setOrderSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-lg text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors"
+                  style={{ background: '#1a1d27', borderColor: '#2a2d3a' }} />
+              </div>
+              <div className="flex gap-1.5 mb-3">
+                {['all', 'active', 'withdrawn', 'expired'].map(s => (
+                  <button key={s} onClick={() => setOrderStatusFilter(s)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${orderStatusFilter === s ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                    style={orderStatusFilter === s
+                      ? { background: s === 'all' ? '#6366f1' : ORDER_STATUS_STYLE[s]?.bg ?? '#6366f1', color: s === 'all' ? 'white' : ORDER_STATUS_STYLE[s]?.text ?? 'white' }
+                      : { background: '#1a1d27', border: '1px solid #2a2d3a' }}>
+                    {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
 
           {ordersLoading ? (

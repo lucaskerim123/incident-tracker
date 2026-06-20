@@ -20,27 +20,34 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return
+    const now = new Date()
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const monthEnd = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`
+
     Promise.all([
-      supabase.from('cases').select('*').order('court_date'),
+      supabase.from('cases').select('id, charge, case_number, status, court_date').order('court_date'),
       supabase.from('incidents').select('*').order('date', { ascending: false }).limit(5),
-      supabase.from('incidents').select('id, status, date, severity'),
-    ]).then(([casesRes, recentRes, allRes]) => {
+      supabase.from('incidents').select('*', { count: 'exact', head: true }),
+      supabase.from('incidents').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('incidents').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
+      supabase.from('incidents').select('*', { count: 'exact', head: true }).gte('date', monthStart).lt('date', monthEnd),
+      supabase.from('incidents').select('*', { count: 'exact', head: true }).eq('severity', 'critical'),
+      supabase.from('incidents').select('*', { count: 'exact', head: true }).eq('severity', 'high'),
+      supabase.from('incidents').select('*', { count: 'exact', head: true }).eq('severity', 'medium'),
+      supabase.from('incidents').select('*', { count: 'exact', head: true }).eq('severity', 'low'),
+    ]).then(([casesRes, recentRes, totalRes, pendingRes, resolvedRes, thisMonthRes, critRes, highRes, medRes, lowRes]) => {
       setCases(casesRes.data ?? [])
       setRecent(recentRes.data ?? [])
-      const all = allRes.data ?? []
-      const now = new Date()
       setStats({
-        total: all.length,
-        pending: all.filter(i => i.status === 'pending').length,
-        resolved: all.filter(i => i.status === 'resolved').length,
-        thisMonth: all.filter(i => {
-          const d = new Date(i.date)
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-        }).length,
-        critical: all.filter(i => i.severity === 'critical').length,
-        high: all.filter(i => i.severity === 'high').length,
-        medium: all.filter(i => i.severity === 'medium').length,
-        low: all.filter(i => i.severity === 'low').length,
+        total:     totalRes.count    ?? 0,
+        pending:   pendingRes.count  ?? 0,
+        resolved:  resolvedRes.count ?? 0,
+        thisMonth: thisMonthRes.count ?? 0,
+        critical:  critRes.count     ?? 0,
+        high:      highRes.count     ?? 0,
+        medium:    medRes.count      ?? 0,
+        low:       lowRes.count      ?? 0,
       })
       setLoading(false)
     }).catch(() => { setError(true); setLoading(false) })

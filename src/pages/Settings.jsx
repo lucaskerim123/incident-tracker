@@ -44,6 +44,7 @@ export default function Settings() {
   // Sign out all sessions
   const [signingOutAll, setSigningOutAll] = useState(false)
   const [signOutMsg, setSignOutMsg] = useState('')
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
 
   // Danger zone
   const [deletionRequestedAt, setDeletionRequestedAt] = useState(null)
@@ -198,12 +199,29 @@ export default function Settings() {
 
         <div className="pt-3 border-t" style={{ borderColor: '#2a2d3a' }}>
           <p className="text-xs text-slate-500 mb-2">Active sessions</p>
-          <button onClick={handleSignOutAll} disabled={signingOutAll}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 border hover:border-slate-500 transition-colors disabled:opacity-50"
-            style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
-            <LogOut size={14} className="text-slate-500" />
-            {signingOutAll ? 'Signing out…' : 'Sign out all other sessions'}
-          </button>
+          {confirmSignOut ? (
+            <div className="rounded-lg p-3 border" style={{ background: 'rgba(249,115,22,0.05)', borderColor: 'rgba(249,115,22,0.2)' }}>
+              <p className="text-xs text-slate-300 mb-2">Sign out all other active sessions? You will remain logged in here.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmSignOut(false)}
+                  className="px-2.5 py-1 text-xs text-slate-400 hover:text-slate-200">
+                  Cancel
+                </button>
+                <button onClick={() => { setConfirmSignOut(false); handleSignOutAll() }} disabled={signingOutAll}
+                  className="px-2.5 py-1 rounded text-xs font-semibold text-white disabled:opacity-50"
+                  style={{ background: '#ea580c' }}>
+                  {signingOutAll ? 'Signing out…' : 'Yes, sign out all'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmSignOut(true)} disabled={signingOutAll}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 border hover:border-slate-500 transition-colors disabled:opacity-50"
+              style={{ background: '#0f1117', borderColor: '#2a2d3a' }}>
+              <LogOut size={14} className="text-slate-500" />
+              Sign out all other sessions
+            </button>
+          )}
           {signOutMsg && <p className="text-xs text-emerald-400 mt-2">{signOutMsg}</p>}
         </div>
       </div>
