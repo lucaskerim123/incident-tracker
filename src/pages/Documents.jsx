@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Upload, X, FileText, Search, Download, Lock, Pencil, Trash2, Plus, Briefcase, Hash, ExternalLink, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
@@ -408,7 +408,7 @@ export default function Documents() {
       })
       .eq('id', editingDoc.id)
       .select().single()
-    if (updateErr) { alert(updateErr.message); return }
+    if (updateErr) { setError(updateErr.message); return }
     if (data) setDocs(d => d.map(x => x.id === editingDoc.id ? data : x))
     setEditingDoc(null)
   }

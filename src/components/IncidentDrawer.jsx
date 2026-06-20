@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { X, Pencil, Send, Trash2, MessageSquare, FileText, ExternalLink, User, Link2, FolderOpen, Check, X as XIcon } from 'lucide-react'
+import { X, Pencil, Send, Trash2, MessageSquare, ExternalLink, User, Link2, FolderOpen, Check, X as XIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
+import DocumentViewer from './DocumentViewer'
 
 const ROLE_TERMS = /\b(police|court|constable|magistrate|inspector|sergeant|sgt|procon|lecc|unknown)\b/i
 
@@ -24,10 +25,13 @@ const STATUS_STYLES = {
 }
 
 const CHARGE_STATUS_STYLES = {
-  pending:    { bg: 'rgba(249,115,22,0.12)',  text: '#fb923c' },
-  adjourned:  { bg: 'rgba(99,102,241,0.12)',  text: '#818cf8' },
-  finalised:  { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
-  withdrawn:  { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
+  active:    { bg: 'rgba(16,185,129,0.12)',  text: '#34d399' },
+  withdrawn: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
+  closed:    { bg: 'rgba(100,116,139,0.12)', text: '#64748b' },
+  // legacy fallbacks
+  pending:   { bg: 'rgba(249,115,22,0.12)',  text: '#fb923c' },
+  adjourned: { bg: 'rgba(99,102,241,0.12)',  text: '#818cf8' },
+  finalised: { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
 }
 
 function Field({ label, children }) {
@@ -133,11 +137,6 @@ export default function IncidentDrawer({ incidentId, onClose }) {
   const deleteComment = async (commentId) => {
     setComments(c => c.filter(x => x.id !== commentId))
     await supabase.from('incident_comments').delete().eq('id', commentId)
-  }
-
-  const getFileUrl = (path) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(path)
-    return data?.publicUrl ?? '#'
   }
 
   const linkedCharge = charges.find(c => c.id === chargeId) ?? null
@@ -354,28 +353,8 @@ export default function IncidentDrawer({ incidentId, onClose }) {
                 {documents.length === 0 ? (
                   <p className="text-xs text-slate-600">No documents attached.</p>
                 ) : (
-                  <div className="flex flex-col gap-1.5">
-                    {documents.map(doc => (
-                      <a
-                        key={doc.id}
-                        href={getFileUrl(doc.file_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border hover:border-indigo-500/40 transition-colors group/doc"
-                        style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}
-                      >
-                        <FileText size={13} className="text-slate-500 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-slate-300 truncate group-hover/doc:text-indigo-300 transition-colors">
-                            {doc.title || doc.file_name}
-                          </p>
-                          {doc.file_name && doc.title && (
-                            <p className="text-[10px] text-slate-600 truncate">{doc.file_name}</p>
-                          )}
-                        </div>
-                        <ExternalLink size={11} className="text-slate-600 shrink-0" />
-                      </a>
-                    ))}
+                  <div className="flex flex-col gap-2">
+                    {documents.map(doc => <DocumentViewer key={doc.id} doc={doc} />)}
                   </div>
                 )}
               </Field>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Trash2, Eye, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound } from 'lucide-react'
+import { UserCheck, UserX, Trash2, X, AlertTriangle, Plus, Pencil, Check, Lock, ChevronDown, Search, KeyRound } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -43,7 +43,6 @@ export default function UserManagement() {
   const [pwResetRequests, setPwResetRequests] = useState([])
   const [pendingRoles, setPendingRoles] = useState({})
 
-  const [creating, setCreating] = useState(false)
   const [createForm, setCreateForm] = useState({ email: '', password: '', role: 'viewer', displayName: '' })
   const [createLoading, setCreateLoading] = useState(false)
   const [createMsg, setCreateMsg] = useState({ text: '', ok: false })

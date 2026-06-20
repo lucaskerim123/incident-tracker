@@ -13,7 +13,6 @@ const IS = { background: '#0f1117', borderColor: '#2a2d3a' }
 
 // ─── Charges ────────────────────────────────────────────────────────────────
 
-const CHARGE_STATUS     = ['active', 'withdrawn', 'closed']
 const BREACH_TYPES      = ['avo', 'bail', 'ico']
 const PLEA_OPTIONS      = ['no plea', 'guilty', 'not guilty']
 const CONVICTION_OPTIONS = ['convicted', 'not convicted']
@@ -104,7 +103,7 @@ const CONVICTION_STYLE = {
   'not convicted': { bg: 'rgba(16,185,129,0.12)', text: '#34d399' },
 }
 
-function ChargeCard({ charge, incidentTitle, docs, canManage, onClick, onEdit, onDelete }) {
+function ChargeCard({ charge, onClick }) {
   const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.active
   const br = charge.breach_type ? BREACH_STYLE[charge.breach_type] : null
   const cv = charge.conviction_status ? CONVICTION_STYLE[charge.conviction_status] : null

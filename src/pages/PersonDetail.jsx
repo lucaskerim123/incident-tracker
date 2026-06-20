@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import {
   ArrowLeft, Pencil, Calendar, Scale, ExternalLink, Lock, Check,
-  Link2, Trash2, Plus, X, ChevronRight, FileText, AlertCircle,
+  Link2, Trash2, Plus, ChevronRight, FileText, AlertCircle,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { usePermissions } from '../hooks/usePermissions'
@@ -165,8 +165,6 @@ export default function PersonDetail() {
       </button>
     </div>
   )
-
-  const hasRelationships = outgoing.length > 0 || incoming.length > 0 || (can.managePeople && addingRel)
 
   return (
     <div className="p-4 max-w-2xl mx-auto pb-12">

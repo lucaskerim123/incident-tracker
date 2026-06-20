@@ -23,7 +23,7 @@ function RoleBadge({ role }) {
 }
 
 export default function Settings() {
-  const { user, userCode, updatePasscode, signOut } = useAuth()
+  const { user, userCode, updatePasscode } = useAuth()
   const { role } = usePermissions()
   const { settings: appSettings } = useAppSettings()
 

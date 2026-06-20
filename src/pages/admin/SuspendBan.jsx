@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
-import { usePermissions, ROLE_LABELS } from '../../hooks/usePermissions'
+import { usePermissions } from '../../hooks/usePermissions'
 
 const inputClass = 'w-full rounded-lg px-3 py-2 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
 const inputStyle = { background: '#0f1117', borderColor: '#2a2d3a' }
