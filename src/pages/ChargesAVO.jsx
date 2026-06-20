@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { format, differenceInDays } from 'date-fns'
-import { Plus, Pencil, Trash2, X, Search, Upload, FileText, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Search, Upload, FileText, AlertCircle, ExternalLink } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
@@ -88,14 +88,67 @@ function ChargeForm({ initial = EMPTY_CHARGE, incidents, onSave, onCancel }) {
   )
 }
 
-function ChargeCard({ charge, incidentTitle, docs, canManage, canUpload, onEdit, onDelete, userId }) {
+function ChargeCard({ charge, incidentTitle, docs, canManage, onClick, onEdit, onDelete }) {
   const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.pending
   const br = charge.breach_type ? BREACH_STYLE[charge.breach_type] : null
+
+  return (
+    <button onClick={onClick} className="w-full text-left rounded-xl p-4 border hover:border-indigo-500/40 transition-all group"
+      style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+
+      {/* Row 1: number · status · breach | date */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-mono text-slate-600">{charge.charge_number || '—'}</span>
+          <span style={{ background: st.bg, color: st.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 600 }}>
+            {charge.status}
+          </span>
+          {br && (
+            <span style={{ background: br.bg, color: br.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 600 }}>
+              {charge.breach_type.toUpperCase()}
+            </span>
+          )}
+        </div>
+        {charge.date_of_charge && (
+          <time className="text-xs text-slate-500 whitespace-nowrap shrink-0">
+            {format(new Date(charge.date_of_charge), 'd MMM yyyy')}
+          </time>
+        )}
+      </div>
+
+      {/* Row 2: outcome as title */}
+      <p className="font-semibold text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-300 transition-colors">
+        {charge.outcome || charge.notes || '—'}
+      </p>
+
+      {/* Row 3: plea */}
+      {charge.plea && charge.plea !== 'no plea' && (
+        <p className="text-xs mb-1.5">
+          <span className="text-slate-600">Plea: </span>
+          <span className="text-slate-400 capitalize">{charge.plea}</span>
+        </p>
+      )}
+
+      {/* Row 4: notes clipped */}
+      {charge.notes && charge.outcome && (
+        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{charge.notes}</p>
+      )}
+    </button>
+  )
+}
+
+function ChargeDrawer({ charge, incidentTitle, initialDocs, canManage, canUpload, userId, onClose, onEdit, onDelete }) {
+  const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.pending
+  const br = charge.breach_type ? BREACH_STYLE[charge.breach_type] : null
+  const [docs, setDocs] = useState(initialDocs)
   const [uploading, setUploading] = useState(false)
-  const [cardDocs, setCardDocs] = useState(docs)
   const fileRef = useRef(null)
 
-  useEffect(() => { setCardDocs(docs) }, [docs])
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
 
   const uploadFile = async (file) => {
     if (!file) return
@@ -106,84 +159,132 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, canUpload, onEdit,
       const { data } = await supabase.from('documents')
         .insert({ user_id: userId, title: file.name, file_path: path, category: 'legal', related_charge_id: charge.id })
         .select().single()
-      if (data) setCardDocs(d => [...d, data])
+      if (data) setDocs(d => [...d, data])
     }
     setUploading(false)
   }
 
   return (
-    <div className="rounded-xl border" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
-      <div className="p-3.5">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex flex-wrap gap-1.5">
-            {charge.charge_number && (
-              <span className="text-xs font-mono text-slate-400 px-2 py-0.5 rounded" style={{ background: '#0f1117' }}>{charge.charge_number}</span>
-            )}
-            <span style={{ ...st, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>{charge.status}</span>
-            {br && <span style={{ ...br, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>Breach: {charge.breach_type.toUpperCase()}</span>}
-            {charge.plea && charge.plea !== 'no plea' && (
-              <span className="text-[11px] px-2 py-0.5 rounded font-semibold" style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
-                {charge.plea}
-              </span>
-            )}
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-50 flex flex-col w-full sm:w-[500px] lg:w-[560px]"
+        style={{ background: '#0f1117', borderLeft: '1px solid #2a2d3a' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: '#2a2d3a' }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span style={{ ...st, padding: '2px 7px', fontSize: 10, borderRadius: 4, fontWeight: 600 }}>{charge.status}</span>
+            {br && <span style={{ ...br, padding: '2px 7px', fontSize: 10, borderRadius: 4, fontWeight: 600 }}>{charge.breach_type.toUpperCase()}</span>}
           </div>
-          {charge.date_of_charge && (
-            <time className="text-xs text-slate-500 shrink-0">{format(new Date(charge.date_of_charge), 'd MMM yyyy')}</time>
-          )}
+          <div className="flex items-center gap-0.5">
+            {canManage && (
+              <>
+                <button onClick={() => { onClose(); onEdit() }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+                  <Pencil size={12} /> Edit
+                </button>
+                <button onClick={() => { onClose(); onDelete() }}
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+            <button onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/5 transition-colors ml-1">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        {incidentTitle && (
-          <p className="text-xs text-slate-500 mb-2">Linked: <span className="text-slate-400">{incidentTitle}</span></p>
-        )}
-        {charge.outcome && (
-          <p className="text-sm text-slate-300 mb-2 leading-relaxed">{charge.outcome}</p>
-        )}
-        {charge.notes && (
-          <p className="text-xs text-slate-500 leading-relaxed">{charge.notes}</p>
-        )}
-        {charge.fact_sheet_url && (
-          <a href={charge.fact_sheet_url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-            <FileText size={11} /> Fact sheet
-          </a>
-        )}
-      </div>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 pb-10">
+          {/* Charge number */}
+          <h1 className="text-2xl font-mono font-bold text-slate-100 mb-1 leading-tight">
+            {charge.charge_number || '—'}
+          </h1>
+          {charge.date_of_charge && (
+            <p className="text-xs text-slate-500 mb-5">{format(new Date(charge.date_of_charge), 'd MMMM yyyy')}</p>
+          )}
 
-      {/* Fact sheets */}
-      {(cardDocs.length > 0 || canUpload) && (
-        <div className="px-3.5 pb-3.5 border-t pt-3" style={{ borderColor: '#2a2d3a' }}>
-          {cardDocs.length > 0 && (
-            <div className="flex flex-col gap-1.5 mb-2">
-              {cardDocs.map(d => <DocumentViewer key={d.id} doc={d} />)}
+          {/* Meta row */}
+          {(charge.plea || incidentTitle) && (
+            <div className="flex flex-wrap gap-4 mb-5 pb-5 border-b" style={{ borderColor: '#2a2d3a' }}>
+              {charge.plea && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Plea</p>
+                  <p className="text-sm text-slate-300 capitalize">{charge.plea}</p>
+                </div>
+              )}
+              {incidentTitle && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Linked Incident</p>
+                  <p className="text-sm text-slate-300">{incidentTitle}</p>
+                </div>
+              )}
             </div>
           )}
-          {canUpload && (
-            <>
-              <input ref={fileRef} type="file" className="hidden" onChange={e => uploadFile(e.target.files?.[0])} />
-              <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-400 transition-colors disabled:opacity-40">
-                <Upload size={12} /> {uploading ? 'Uploading…' : 'Add fact sheet'}
-              </button>
-            </>
-          )}
-        </div>
-      )}
 
-      {canManage && (
-        <div className="flex justify-end gap-0.5 px-2 pb-2">
-          <button onClick={onEdit} className="p-1.5 rounded text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-            <Pencil size={13} />
-          </button>
-          <button onClick={onDelete} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-            <Trash2 size={13} />
-          </button>
+          {/* Outcome */}
+          {charge.outcome && (
+            <div className="mb-5">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Outcome</h3>
+              <div className="p-3 rounded-lg border-l-2 border-indigo-500" style={{ background: '#1a1d27' }}>
+                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{charge.outcome}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {charge.notes && (
+            <div className="mb-5">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Notes</h3>
+              <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{charge.notes}</p>
+            </div>
+          )}
+
+          {/* Fact sheet URL */}
+          {charge.fact_sheet_url && (
+            <div className="mb-5">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Fact Sheet Link</h3>
+              <a href={charge.fact_sheet_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:border-indigo-500/40 transition-colors group/fs"
+                style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
+                <FileText size={13} className="text-slate-500 shrink-0" />
+                <span className="text-xs text-slate-300 truncate group-hover/fs:text-indigo-300 transition-colors flex-1">{charge.fact_sheet_url}</span>
+                <ExternalLink size={11} className="text-slate-600 shrink-0" />
+              </a>
+            </div>
+          )}
+
+          {/* Uploaded Documents */}
+          <div>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              Documents{docs.length > 0 ? ` · ${docs.length}` : ''}
+            </h3>
+            {docs.length === 0 && !canUpload && (
+              <p className="text-xs text-slate-600">No documents attached.</p>
+            )}
+            <div className="flex flex-col gap-2">
+              {docs.map(d => <DocumentViewer key={d.id} doc={d} />)}
+            </div>
+            {canUpload && (
+              <div className="mt-2">
+                <input ref={fileRef} type="file" className="hidden" onChange={e => uploadFile(e.target.files?.[0])} />
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-dashed text-xs text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors disabled:opacity-40"
+                  style={{ borderColor: '#2a2d3a' }}>
+                  <Upload size={12} /> {uploading ? 'Uploading…' : 'Upload document'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   )
 }
 
-// ─── Court Orders ────────────────────────────────────────────────────────────
+
 
 const ORDER_TYPES  = ['AVO', 'ICO', 'CCO']
 const ORDER_STATUS = ['active', 'withdrawn', 'expired']
@@ -254,60 +355,161 @@ function OrderForm({ initial = EMPTY_ORDER, onSave, onCancel }) {
   )
 }
 
-function OrderCard({ order, canManage, onEdit, onDelete }) {
-  const st  = ORDER_STATUS_STYLE[order.status]  ?? ORDER_STATUS_STYLE.active
-  const ot  = ORDER_TYPE_STYLE[order.order_type] ?? {}
+function OrderCard({ order, canManage, onClick, onEdit, onDelete }) {
+  const st = ORDER_STATUS_STYLE[order.status] ?? ORDER_STATUS_STYLE.active
+  const ot = ORDER_TYPE_STYLE[order.order_type] ?? {}
   const daysLeft = order.expiry_date ? differenceInDays(new Date(order.expiry_date), new Date()) : null
   const expiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
 
   return (
-    <div className="rounded-xl border p-3.5" style={{ background: '#1a1d27', borderColor: expiringSoon ? 'rgba(249,115,22,0.4)' : '#2a2d3a' }}>
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex flex-wrap gap-1.5">
-          <span style={{ ...ot, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 700 }}>{order.order_type}</span>
-          <span style={{ ...st, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>{order.status}</span>
+    <button onClick={onClick} className="w-full text-left rounded-xl p-4 border hover:border-indigo-500/40 transition-all group"
+      style={{ background: '#1a1d27', borderColor: expiringSoon ? 'rgba(249,115,22,0.4)' : '#2a2d3a' }}>
+
+      {/* Row 1: type · status | expiry */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <span style={{ background: ot.bg, color: ot.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 700 }}>
+            {order.order_type}
+          </span>
+          <span style={{ background: st.bg, color: st.text, padding: '2px 7px', fontSize: 10, borderRadius: 5, fontWeight: 600 }}>
+            {order.status}
+          </span>
         </div>
         {order.expiry_date && (
-          <div className="text-right shrink-0">
-            <time className={`text-xs ${expiringSoon ? 'text-orange-400' : 'text-slate-500'}`}>
-              Expires {format(new Date(order.expiry_date), 'd MMM yyyy')}
-            </time>
-            {expiringSoon && daysLeft > 0 && (
-              <p className="text-[10px] text-orange-400 flex items-center gap-1 justify-end mt-0.5">
-                <AlertCircle size={9} />{daysLeft}d remaining
-              </p>
-            )}
-            {daysLeft === 0 && <p className="text-[10px] text-red-400 mt-0.5">Expires today</p>}
-          </div>
+          <time className={`text-xs whitespace-nowrap shrink-0 ${expiringSoon ? 'text-orange-400' : 'text-slate-500'}`}>
+            {format(new Date(order.expiry_date), 'd MMM yyyy')}
+            {expiringSoon && daysLeft > 0 && ` · ${daysLeft}d`}
+            {daysLeft === 0 && ' · today'}
+          </time>
         )}
       </div>
 
-      {(order.protecting_who || order.protected_from) && (
-        <div className="flex items-center gap-2 mb-2 text-sm">
-          {order.protecting_who && <span className="text-slate-300">{order.protecting_who}</span>}
-          {order.protecting_who && order.protected_from && <span className="text-slate-600">vs</span>}
-          {order.protected_from && <span className="text-slate-300">{order.protected_from}</span>}
-        </div>
-      )}
+      {/* Row 2: who vs who as title */}
+      <p className="font-semibold text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-300 transition-colors">
+        {[order.protecting_who, order.protected_from].filter(Boolean).join(' vs ') || '—'}
+      </p>
 
+      {/* Row 3: conditions clipped */}
       {order.conditions && (
-        <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed mb-2">{order.conditions}</p>
+        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{order.conditions}</p>
       )}
-      {order.notes && (
-        <p className="text-xs text-slate-500 leading-relaxed">{order.notes}</p>
-      )}
+    </button>
+  )
+}
 
-      {canManage && (
-        <div className="flex justify-end gap-0.5 mt-2">
-          <button onClick={onEdit} className="p-1.5 rounded text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-            <Pencil size={13} />
-          </button>
-          <button onClick={onDelete} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-            <Trash2 size={13} />
-          </button>
+function OrderDrawer({ order, canManage, onClose, onEdit, onDelete }) {
+  const st = ORDER_STATUS_STYLE[order.status] ?? ORDER_STATUS_STYLE.active
+  const ot = ORDER_TYPE_STYLE[order.order_type] ?? {}
+  const daysLeft = order.expiry_date ? differenceInDays(new Date(order.expiry_date), new Date()) : null
+  const expiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-50 flex flex-col w-full sm:w-[500px] lg:w-[560px]"
+        style={{ background: '#0f1117', borderLeft: '1px solid #2a2d3a' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: '#2a2d3a' }}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span style={{ ...ot, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 700 }}>{order.order_type}</span>
+            <span style={{ ...st, padding: '2px 8px', fontSize: 11, borderRadius: 5, fontWeight: 600 }}>{order.status}</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            {canManage && (
+              <>
+                <button onClick={() => { onClose(); onEdit() }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+                  <Pencil size={12} /> Edit
+                </button>
+                <button onClick={() => { onClose(); onDelete() }}
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+            <button onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/5 transition-colors ml-1">
+              <X size={18} />
+            </button>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 pb-10">
+          {/* Who vs who */}
+          {(order.protecting_who || order.protected_from) && (
+            <div className="mb-5">
+              <div className="flex items-center gap-3 flex-wrap">
+                {order.protecting_who && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Protected</p>
+                    <p className="text-xl font-bold text-slate-100">{order.protecting_who}</p>
+                  </div>
+                )}
+                {order.protecting_who && order.protected_from && (
+                  <span className="text-slate-600 text-lg font-light mt-4">vs</span>
+                )}
+                {order.protected_from && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Defendant</p>
+                    <p className="text-xl font-bold text-slate-100">{order.protected_from}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Expiry */}
+          {order.expiry_date && (
+            <div className="flex items-center gap-2 mb-5 pb-5 border-b" style={{ borderColor: '#2a2d3a' }}>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Expiry Date</p>
+                <p className={`text-sm font-medium ${expiringSoon ? 'text-orange-400' : 'text-slate-300'}`}>
+                  {format(new Date(order.expiry_date), 'd MMMM yyyy')}
+                </p>
+              </div>
+              {expiringSoon && daysLeft > 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded ml-2"
+                  style={{ background: 'rgba(249,115,22,0.12)', color: '#fb923c' }}>
+                  <AlertCircle size={9} />{daysLeft}d remaining
+                </span>
+              )}
+              {daysLeft === 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded ml-2"
+                  style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171' }}>
+                  Expires today
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Conditions */}
+          {order.conditions && (
+            <div className="mb-5">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Conditions</h3>
+              <div className="p-3 rounded-lg border-l-2 border-indigo-500" style={{ background: '#1a1d27' }}>
+                <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{order.conditions}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {order.notes && (
+            <div>
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Notes</h3>
+              <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed">{order.notes}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -324,6 +526,7 @@ export default function ChargesAVO() {
   const [incidents, setIncidents] = useState([])
   const [chargesLoading, setChargesLoading] = useState(true)
   const [showChargeForm, setShowChargeForm] = useState(false)
+  const [selectedCharge, setSelectedCharge] = useState(null)
   const [editingCharge, setEditingCharge] = useState(null)
   const [confirmDeleteCharge, setConfirmDeleteCharge] = useState(null)
   const [chargeSearch, setChargeSearch] = useState('')
@@ -332,6 +535,7 @@ export default function ChargesAVO() {
   const [orders, setOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [showOrderForm, setShowOrderForm] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState(null)
   const [editingOrder, setEditingOrder] = useState(null)
   const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(null)
   const [orderSearch, setOrderSearch] = useState('')
@@ -520,10 +724,9 @@ export default function ChargesAVO() {
                     incidentTitle={incidentMap[c.linked_incident_id]}
                     docs={chargeDocs[c.id] ?? []}
                     canManage={can.manageCases}
-                    canUpload={can.upload}
+                    onClick={() => setSelectedCharge(c)}
                     onEdit={() => setEditingCharge(c)}
                     onDelete={() => setConfirmDeleteCharge(c.id)}
-                    userId={user?.id}
                   />
                 )
               ))}
@@ -577,6 +780,7 @@ export default function ChargesAVO() {
                     key={o.id}
                     order={o}
                     canManage={can.manageCases}
+                    onClick={() => setSelectedOrder(o)}
                     onEdit={() => setEditingOrder(o)}
                     onDelete={() => setConfirmDeleteOrder(o.id)}
                   />
@@ -603,6 +807,30 @@ export default function ChargesAVO() {
         onConfirm={deleteOrder}
         onCancel={() => setConfirmDeleteOrder(null)}
       />
+
+      {selectedCharge && (
+        <ChargeDrawer
+          charge={selectedCharge}
+          incidentTitle={incidentMap[selectedCharge.linked_incident_id]}
+          initialDocs={chargeDocs[selectedCharge.id] ?? []}
+          canManage={can.manageCases}
+          canUpload={can.upload}
+          userId={user?.id}
+          onClose={() => setSelectedCharge(null)}
+          onEdit={() => { setSelectedCharge(null); setEditingCharge(selectedCharge) }}
+          onDelete={() => { setSelectedCharge(null); setConfirmDeleteCharge(selectedCharge.id) }}
+        />
+      )}
+
+      {selectedOrder && (
+        <OrderDrawer
+          order={selectedOrder}
+          canManage={can.manageCases}
+          onClose={() => setSelectedOrder(null)}
+          onEdit={() => { setSelectedOrder(null); setEditingOrder(selectedOrder) }}
+          onDelete={() => { setSelectedOrder(null); setConfirmDeleteOrder(selectedOrder.id) }}
+        />
+      )}
     </div>
   )
 }
