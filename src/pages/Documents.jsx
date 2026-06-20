@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { Upload, X, FileText, Search, Download, Lock, Pencil, Trash2, Plus, Briefcase, Hash, ExternalLink, Check } from 'lucide-react'
+import { Upload, X, FileText, Search, Download, Lock, Pencil, Trash2, Plus, Briefcase, Hash, ExternalLink, Check, Link2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
+import { useGoogleDrive } from '../context/GoogleDriveContext'
+import { uploadToDrive } from '../lib/googleDrive'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 const IC = 'w-full rounded-lg px-3 py-2 text-sm text-slate-100 border outline-none focus:border-indigo-500 transition-colors'
@@ -20,7 +22,7 @@ function DocCard({ doc, caseLabel, incidentLabel, onEdit, onDelete, canEdit, can
       const { data } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 3600)
       if (data?.signedUrl) window.open(data.signedUrl, '_blank')
     } else if (doc.google_doc_id) {
-      window.open(`https://docs.google.com/document/d/${doc.google_doc_id}/edit`, '_blank')
+      window.open(`https://drive.google.com/file/d/${doc.google_doc_id}/view`, '_blank')
     }
   }
   const isPdf = doc.file_path?.toLowerCase().endsWith('.pdf')
@@ -146,6 +148,7 @@ function DocEditForm({ doc, cases, incidents, onSave, onCancel, canRestrict }) {
 
 function AddPanel({ cases, incidents, canRestrict, onAdded, onClose }) {
   const { user } = useAuth()
+  const { accessToken, login, isConnected } = useGoogleDrive()
   const [mode, setMode] = useState('upload')
   const [form, setForm] = useState(BLANK_FORM)
   const [stagedFiles, setStagedFiles] = useState([])
@@ -153,6 +156,7 @@ function AddPanel({ cases, incidents, canRestrict, onAdded, onClose }) {
   const [uploadProgress, setUploadProgress] = useState({})
   const [error, setError] = useState('')
   const fileRef = useRef()
+  const driveFileRef = useRef()
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -195,21 +199,35 @@ function AddPanel({ cases, incidents, canRestrict, onAdded, onClose }) {
     if (results.length) { onAdded(results); onClose() }
   }
 
-  const addGdrive = async () => {
-    if (!form.title.trim() || !form.google_doc_id.trim()) { setError('Title and Google Doc ID are required.'); return }
-    const { data, error: insertErr } = await supabase.from('documents').insert({
-      user_id: user.id,
-      title: form.title,
-      google_doc_id: form.google_doc_id,
-      category: form.category,
-      related_case_id: form.related_case_id || null,
-      related_incident_id: form.related_incident_id || null,
-      restricted: form.restricted,
-      description: form.description || null,
-      created_at: new Date().toISOString(),
-    }).select().single()
-    if (insertErr) { setError(insertErr.message); return }
-    if (data) { onAdded([data]); onClose() }
+  const uploadToDriveAll = async () => {
+    if (!stagedFiles.length) return
+    if (!isConnected) { login(); return }
+    setUploading(true); setError('')
+    const results = []
+    for (const file of stagedFiles) {
+      setUploadProgress(p => ({ ...p, [file.name]: 'uploading' }))
+      try {
+        const driveFile = await uploadToDrive(file, accessToken)
+        const { data } = await supabase.from('documents').insert({
+          user_id: user.id,
+          title: file.name,
+          google_doc_id: driveFile.id,
+          category: form.category,
+          related_case_id: form.related_case_id || null,
+          related_incident_id: form.related_incident_id || null,
+          restricted: form.restricted,
+          description: form.description || null,
+          created_at: new Date().toISOString(),
+        }).select().single()
+        if (data) results.push(data)
+        setUploadProgress(p => ({ ...p, [file.name]: 'done' }))
+      } catch (e) {
+        setUploadProgress(p => ({ ...p, [file.name]: 'error' }))
+        setError(`Failed to upload ${file.name} to Drive: ${e.message}`)
+      }
+    }
+    setUploading(false)
+    if (results.length) { onAdded(results); onClose() }
   }
 
   const sharedFields = (
@@ -307,18 +325,70 @@ function AddPanel({ cases, incidents, canRestrict, onAdded, onClose }) {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <input placeholder="Document title *" value={form.title}
-            onChange={e => set('title', e.target.value)} className={IC} style={IS} />
-          <input placeholder="Google Doc ID (from the URL) *" value={form.google_doc_id}
-            onChange={e => set('google_doc_id', e.target.value)} className={IC} style={IS} />
-          <p className="text-xs text-slate-600 -mt-1">Paste the long ID found in the Google Docs URL</p>
-          {sharedFields}
+          <input type="file" ref={driveFileRef} onChange={onFilesPicked} className="hidden" multiple
+            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.xlsx,.xls,.csv" />
+
+          {/* Connect banner */}
+          {!isConnected ? (
+            <button onClick={() => login()}
+              className="w-full rounded-xl border-2 border-dashed py-6 flex flex-col items-center gap-2 transition-colors hover:border-indigo-500/50"
+              style={{ borderColor: '#2a2d3a' }}>
+              <Link2 size={22} className="text-slate-500" />
+              <span className="text-sm text-slate-400">Connect Google Drive</span>
+              <span className="text-xs text-slate-600">Sign in to upload files to your Drive account</span>
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(16,185,129,0.08)', color: '#34d399' }}>
+                <Check size={12} />
+                <span>Connected to Google Drive</span>
+              </div>
+
+              {stagedFiles.length === 0 ? (
+                <button onClick={() => driveFileRef.current?.click()}
+                  className="w-full rounded-xl border-2 border-dashed py-8 flex flex-col items-center gap-2 text-slate-400 hover:text-slate-200 hover:border-indigo-500/50 transition-colors"
+                  style={{ borderColor: '#2a2d3a' }}>
+                  <Upload size={24} />
+                  <span className="text-sm">Click to select files</span>
+                  <span className="text-xs text-slate-600">Files will be saved to your Google Drive</span>
+                </button>
+              ) : (
+                <div className="rounded-lg border p-2 flex flex-col gap-1" style={{ borderColor: '#2a2d3a' }}>
+                  {stagedFiles.map(f => (
+                    <div key={f.name} className="flex items-center gap-2 px-2 py-1.5 rounded text-xs" style={{ background: '#0f1117' }}>
+                      <FileText size={12} className="text-slate-500 shrink-0" />
+                      <span className="flex-1 text-slate-300 truncate">{f.name}</span>
+                      <span className="text-slate-600 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                      {uploadProgress[f.name] === 'done' && <Check size={12} className="text-emerald-400 shrink-0" />}
+                      {uploadProgress[f.name] === 'error' && <span className="text-red-400 shrink-0">✕</span>}
+                      {uploadProgress[f.name] === 'uploading' && (
+                        <div className="w-3 h-3 border border-indigo-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={() => { setStagedFiles([]); setUploadProgress({}) }}
+                    className="text-xs text-slate-600 hover:text-slate-400 mt-1 text-left">
+                    Clear selection
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {isConnected && sharedFields}
           {error && <p className="text-xs text-red-400">{error}</p>}
+
           <div className="flex gap-2 justify-end mt-1">
-            <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-400">Cancel</button>
-            <button onClick={addGdrive}
-              className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white"
-              style={{ background: '#6366f1' }}>Add Link</button>
+            <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-400 hover:text-slate-200">Cancel</button>
+            {isConnected && (
+              <button onClick={stagedFiles.length ? uploadToDriveAll : () => driveFileRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: '#6366f1' }}>
+                <Upload size={14} />
+                {uploading ? 'Uploading…' : stagedFiles.length ? `Upload ${stagedFiles.length} to Drive` : 'Choose Files'}
+              </button>
+            )}
           </div>
         </div>
       )}

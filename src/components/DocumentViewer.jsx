@@ -86,7 +86,7 @@ export default function DocumentViewer({ doc, compact = false }) {
   const openDoc = async () => {
     if (loading) return
     if (doc.google_doc_id) {
-      window.open(`https://docs.google.com/document/d/${doc.google_doc_id}/edit`, '_blank')
+      window.open(`https://drive.google.com/file/d/${doc.google_doc_id}/view`, '_blank')
       return
     }
     if (!doc.file_path) return

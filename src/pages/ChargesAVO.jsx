@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { format, differenceInDays } from 'date-fns'
-import { Plus, Pencil, Trash2, X, Search, Upload, FileText, AlertCircle, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Search, Upload, FileText, AlertCircle, ExternalLink, Link2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
+import { useGoogleDrive } from '../context/GoogleDriveContext'
+import { uploadToDrive } from '../lib/googleDrive'
 import ConfirmDialog from '../components/ConfirmDialog'
 import DocumentViewer from '../components/DocumentViewer'
 
@@ -159,10 +161,12 @@ function ChargeCard({ charge, incidentTitle, docs, canManage, onClick, onEdit, o
 
 function ChargeDrawer({ charge, incidentTitle, initialDocs, canManage, canUpload, userId, onClose, onEdit, onDelete }) {
   const navigate = useNavigate()
+  const { accessToken, login, isConnected } = useGoogleDrive()
   const st = CHARGE_STATUS_STYLE[charge.status] ?? CHARGE_STATUS_STYLE.active
   const br = charge.breach_type ? BREACH_STYLE[charge.breach_type] : null
   const [docs, setDocs] = useState(initialDocs)
   const [uploading, setUploading] = useState(false)
+  const [uploadMode, setUploadMode] = useState('supabase')
   const fileRef = useRef(null)
 
   useEffect(() => {
@@ -174,13 +178,26 @@ function ChargeDrawer({ charge, incidentTitle, initialDocs, canManage, canUpload
   const uploadFile = async (file) => {
     if (!file) return
     setUploading(true)
-    const path = `${userId}/${Date.now()}_${file.name}`
-    const { error: upErr } = await supabase.storage.from('documents').upload(path, file)
-    if (!upErr) {
-      const { data } = await supabase.from('documents')
-        .insert({ user_id: userId, title: file.name, file_path: path, category: 'legal', related_charge_id: charge.id })
-        .select().single()
-      if (data) setDocs(d => [...d, data])
+    if (uploadMode === 'drive') {
+      if (!isConnected) { login(); setUploading(false); return }
+      try {
+        const driveFile = await uploadToDrive(file, accessToken)
+        const { data } = await supabase.from('documents')
+          .insert({ user_id: userId, title: file.name, google_doc_id: driveFile.id, category: 'legal', related_charge_id: charge.id })
+          .select().single()
+        if (data) setDocs(d => [...d, data])
+      } catch (e) {
+        console.error('Drive upload failed', e)
+      }
+    } else {
+      const path = `${userId}/${Date.now()}_${file.name}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, file)
+      if (!upErr) {
+        const { data } = await supabase.from('documents')
+          .insert({ user_id: userId, title: file.name, file_path: path, category: 'legal', related_charge_id: charge.id })
+          .select().single()
+        if (data) setDocs(d => [...d, data])
+      }
     }
     setUploading(false)
   }
@@ -304,13 +321,32 @@ function ChargeDrawer({ charge, incidentTitle, initialDocs, canManage, canUpload
               {docs.map(d => <DocumentViewer key={d.id} doc={d} />)}
             </div>
             {canUpload && (
-              <div className="mt-2">
+              <div className="mt-2 flex flex-col gap-2">
                 <input ref={fileRef} type="file" className="hidden" onChange={e => uploadFile(e.target.files?.[0])} />
-                <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                  className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-dashed text-xs text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors disabled:opacity-40"
-                  style={{ borderColor: '#2a2d3a' }}>
-                  <Upload size={12} /> {uploading ? 'Uploading…' : 'Upload document'}
-                </button>
+                {/* Upload mode toggle */}
+                <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: '#0f1117' }}>
+                  {[['supabase', 'Supabase'], ['drive', 'Google Drive']].map(([m, l]) => (
+                    <button key={m} onClick={() => setUploadMode(m)}
+                      className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${uploadMode === m ? 'text-slate-100' : 'text-slate-500 hover:text-slate-300'}`}
+                      style={uploadMode === m ? { background: '#2a2d3a' } : {}}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                {uploadMode === 'drive' && !isConnected ? (
+                  <button onClick={() => login()}
+                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-dashed text-xs text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors"
+                    style={{ borderColor: '#2a2d3a' }}>
+                    <Link2 size={12} /> Connect Google Drive to upload
+                  </button>
+                ) : (
+                  <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-dashed text-xs text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors disabled:opacity-40"
+                    style={{ borderColor: '#2a2d3a' }}>
+                    <Upload size={12} />
+                    {uploading ? 'Uploading…' : uploadMode === 'drive' ? 'Upload to Google Drive' : 'Upload document'}
+                  </button>
+                )}
               </div>
             )}
           </div>
