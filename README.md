@@ -1,28 +1,33 @@
 # Incident Tracker
 
-A private case management web app for tracking incidents, charges, court orders, and legal documents.
+A private case management web app for logging incidents, tracking charges, managing court orders, and storing legal documents.
 
 ## Stack
 
-- **Frontend**: React 19 + Vite, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL + Auth + Storage)
-- **Hosting**: Vercel
+| Layer | Tech |
+|-------|------|
+| Frontend | React 19, Vite, Tailwind CSS |
+| Backend | Supabase (PostgreSQL, Auth, Storage) |
+| Hosting | Vercel |
 
 ## Features
 
-- **Incidents** — Log and track incidents with dates, descriptions, severity, and linked evidence
-- **Charges / AVO** — Track criminal charges (status, plea, conviction) and court orders (AVO, ICO, CCO) with expiry alerts
-- **Documents** — Upload and manage legal documents; attach to incidents, charges, or cases
-- **Cases** — Group related incidents and documents into case files
-- **Admin** — User management, role permissions, registration control, ban list
+- **Incidents** — Log incidents with date, description, severity, people involved, outcome, and linked evidence. Attach case folder links and link directly to charges.
+- **Charges** — Track criminal charges with charge number, breach type (AVO/Bail/ICO), plea, conviction status, outcome, and uploaded fact sheets.
+- **Court Orders** — Manage AVOs, ICOs, and CCOs with conditions, parties, expiry dates, and expiry alerts.
+- **Documents** — Upload and manage legal documents with signed secure URLs. Attach to incidents, charges, or cases.
+- **Cases** — Group related incidents and documents into case files.
+- **People** — Maintain profiles for involved persons including labels, legal updates, relationships, and notes.
+- **Admin** — User management, role permissions, registration control, suspension/ban system, login history, and ban list.
 
 ## Roles
 
 | Role | Access |
 |------|--------|
-| Admin | Full access including user management |
-| Manager | Create/edit/delete all records |
-| Viewer | Read-only access |
+| Admin | Full access including user management and all settings |
+| Editor | Create, edit, and delete all records; manage users |
+| Viewer | Read-only access to all records |
+| Lawyer | Read-only access (restricted fields hidden) |
 
 ## Local Development
 
@@ -31,7 +36,7 @@ npm install
 npm run dev
 ```
 
-Requires a `.env.local` file:
+Create a `.env.local` file:
 
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -40,9 +45,9 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ## Database
 
-Migrations are in `supabase/migrations/`. Run them in order against your Supabase project.
+Migrations are in `supabase/migrations/` and must be applied in order. Each file is numbered sequentially — run them against your Supabase project via the Supabase dashboard SQL editor or CLI.
 
 ## Branch Structure
 
-- `main` — production
-- `Development` — staging / feature testing (separate environment)
+- `main` — production (deploys to Vercel automatically)
+- `Development` — staging and feature testing (separate Supabase + Vercel environment)
