@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, ShieldOff, Ban, Settings2 } from 'lucide-react'
+import { LayoutDashboard, Users, ShieldOff, Ban, Settings2, SlidersHorizontal } from 'lucide-react'
 import { usePermissions } from '../hooks/usePermissions'
 
 export default function Admin() {
@@ -13,7 +13,8 @@ export default function Admin() {
       { to: '/admin/bans', label: 'Ban List', icon: Ban },
     ] : []),
     ...(isAdmin ? [
-      { to: '/admin/settings', label: 'App Settings', icon: Settings2 },
+      { to: '/admin/roles',    label: 'Role Permissions', icon: SlidersHorizontal },
+      { to: '/admin/settings', label: 'App Settings',     icon: Settings2 },
     ] : []),
   ]
 

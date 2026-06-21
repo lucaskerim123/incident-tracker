@@ -30,11 +30,11 @@ export default function Layout() {
   const navigate = useNavigate()
 
   const navItems = [
-    { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
-    { to: '/incidents', label: 'Incidents', icon: AlertTriangle,   show: settings.feature_incidents !== false },
-    { to: '/people',    label: 'People',    icon: Users,           show: settings.feature_people !== false },
-    { to: '/charges',   label: 'Charges / AVO', icon: Briefcase,   show: settings.feature_cases !== false },
-    { to: '/documents', label: 'Documents', icon: FileText,        show: settings.feature_documents !== false },
+    { to: '/',          label: 'Dashboard',     icon: LayoutDashboard, exact: true },
+    { to: '/incidents', label: 'Incidents',     icon: AlertTriangle,   show: settings.feature_incidents !== false && can.pageIncidents !== false },
+    { to: '/people',    label: 'People',        icon: Users,           show: settings.feature_people    !== false && can.pagePeople    !== false },
+    { to: '/charges',   label: 'Charges / AVO', icon: Briefcase,       show: settings.feature_cases     !== false && can.pageCharges   !== false },
+    { to: '/documents', label: 'Documents',     icon: FileText,        show: settings.feature_documents !== false && can.pageDocuments !== false },
   ].filter(item => item.show !== false)
 
   const handleSignOut = async () => {

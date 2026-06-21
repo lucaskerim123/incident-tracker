@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { usePermissions } from './hooks/usePermissions'
+import { RolePermissionsProvider } from './context/RolePermissionsContext'
 import Layout from './components/Layout'
 import PendingApproval from './components/PendingApproval'
 import Suspended from './components/Suspended'
@@ -22,6 +23,7 @@ import UserManagement from './pages/admin/UserManagement'
 import SuspendBan from './pages/admin/SuspendBan'
 import BanList from './pages/admin/BanList'
 import AdminSettings from './pages/admin/AdminSettings'
+import RolePermissions from './pages/admin/RolePermissions'
 
 function RequireViewAdmin({ children }) {
   const { can } = usePermissions()
@@ -64,6 +66,7 @@ function AppRoutes() {
           <Route path="suspend" element={<SuspendBan />} />
           <Route path="bans" element={<BanList />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="roles" element={<RolePermissions />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -75,7 +78,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <RolePermissionsProvider>
+          <AppRoutes />
+        </RolePermissionsProvider>
       </AuthProvider>
     </BrowserRouter>
   )

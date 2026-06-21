@@ -1,31 +1,44 @@
+import { useContext } from 'react'
 import { useAuth } from './useAuth'
+import { RolePermissionsContext } from '../context/RolePermissionsContext'
+import { DEFAULT_PERMISSIONS } from '../lib/roleDefaults'
 
-const PERMISSIONS = {
-  admin: {
-    view: true, add: true, edit: true, delete: true,
-    upload: true, managePeople: true, manageCases: true,
-    manageUsers: true, inviteUsers: true, export: true, viewAdmin: true,
-    canComment: true, viewSensitiveNotes: true,
-  },
-  editor: {
-    view: true, add: true, edit: true, delete: false,
-    upload: true, managePeople: true, manageCases: true,
-    manageUsers: true, inviteUsers: false, export: true, viewAdmin: true,
-    canComment: true, viewSensitiveNotes: true,
-  },
-  lawyer: {
-    view: true, add: false, edit: false, delete: false,
-    upload: false, managePeople: false, manageCases: false,
-    manageUsers: false, inviteUsers: false, export: false, viewAdmin: false,
-    canComment: true, viewSensitiveNotes: true,
-  },
-  viewer: {
-    view: true, add: false, edit: false, delete: false,
-    upload: false, managePeople: false, manageCases: false,
-    manageUsers: false, inviteUsers: false, export: false, viewAdmin: false,
-    canComment: false, viewSensitiveNotes: false,
-  },
+// ─── Master permission registry ───────────────────────────────────────────────
+// Add a new key here and it automatically appears in the Role Permissions editor.
+// Admin permissions are always full-access and are never stored in / read from DB.
+
+export const PERMISSION_DEFS = {
+  // ── Page visibility ──
+  pageIncidents:      { label: 'View Incidents page',           group: 'Pages' },
+  pagePeople:         { label: 'View People page',              group: 'Pages' },
+  pageCharges:        { label: 'View Charges / AVO page',       group: 'Pages' },
+  pageDocuments:      { label: 'View Documents page',           group: 'Pages' },
+
+  // ── Record actions ──
+  view:               { label: 'View records',                  group: 'Records' },
+  add:                { label: 'Add new records',               group: 'Records' },
+  edit:               { label: 'Edit existing records',         group: 'Records' },
+  delete:             { label: 'Delete records',                group: 'Records' },
+
+  // ── Data ──
+  upload:             { label: 'Upload documents',              group: 'Data' },
+  export:             { label: 'Export / download data',        group: 'Data' },
+  canComment:         { label: 'Post comments on incidents',    group: 'Data' },
+  viewSensitiveNotes: { label: 'View restricted / legal notes', group: 'Data' },
+
+  // ── People ──
+  managePeople:       { label: 'Create & edit people',          group: 'People' },
+
+  // ── Cases / charges ──
+  manageCases:        { label: 'Create & edit charges & orders', group: 'Cases' },
+
+  // ── Admin ──
+  manageUsers:        { label: 'Manage users (suspend, ban)',   group: 'Admin' },
+  inviteUsers:        { label: 'Invite new users',              group: 'Admin' },
+  viewAdmin:          { label: 'Access the Admin section',      group: 'Admin' },
 }
+
+export { DEFAULT_PERMISSIONS }
 
 export const ROLE_LABELS = {
   admin:  'Admin',
@@ -44,10 +57,20 @@ export const ROLE_STYLES = {
 export function usePermissions() {
   const { userRole } = useAuth()
   const role = userRole ?? 'viewer'
+  const ctx = useContext(RolePermissionsContext)
+
+  let can
+  if (role === 'admin' || !ctx) {
+    // Admin always uses hardcoded full-access; never customisable from DB
+    can = DEFAULT_PERMISSIONS[role] ?? DEFAULT_PERMISSIONS.viewer
+  } else {
+    can = ctx.getPermissions(role)
+  }
+
   return {
     role,
     isAdmin: role === 'admin',
     isEditor: role === 'editor' || role === 'admin',
-    can: PERMISSIONS[role] ?? PERMISSIONS.viewer,
+    can,
   }
 }
