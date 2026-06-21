@@ -425,6 +425,13 @@ export default function Documents() {
   const deleteDoc = async (doc) => {
     if (doc.file_path) await supabase.storage.from('documents').remove([doc.file_path])
     await supabase.from('documents').delete().eq('id', doc.id)
+    if (doc.google_doc_id) {
+      await supabase.from('pending_gdrive_deletions').insert({
+        google_doc_id: doc.google_doc_id,
+        doc_name: doc.title ?? null,
+        deleted_by: user?.id ?? null,
+      })
+    }
     setDocs(d => d.filter(x => x.id !== doc.id))
     setConfirmDel(null)
   }

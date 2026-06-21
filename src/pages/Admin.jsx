@@ -1,9 +1,20 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, ShieldOff, Ban, Settings2, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { LayoutDashboard, Users, ShieldOff, Ban, Settings2, SlidersHorizontal, Clock } from 'lucide-react'
 import { usePermissions } from '../hooks/usePermissions'
+import { supabase } from '../lib/supabase'
 
 export default function Admin() {
   const { can, isAdmin } = usePermissions()
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    if (!isAdmin) return
+    supabase.from('pending_gdrive_deletions')
+      .select('*', { count: 'exact', head: true })
+      .eq('dismissed', false)
+      .then(({ count }) => setPendingCount(count ?? 0))
+  }, [isAdmin])
 
   const items = [
     { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -13,6 +24,7 @@ export default function Admin() {
       { to: '/admin/bans', label: 'Ban List', icon: Ban },
     ] : []),
     ...(isAdmin ? [
+      { to: '/admin/pending', label: 'Pending Approvals', icon: Clock, badge: pendingCount },
       { to: '/admin/roles',    label: 'Role Permissions', icon: SlidersHorizontal },
       { to: '/admin/settings', label: 'App Settings',     icon: Settings2 },
     ] : []),
@@ -32,7 +44,13 @@ export default function Admin() {
               }`
             }>
             <item.icon size={15} />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {item.badge > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                {item.badge}
+              </span>
+            )}
           </NavLink>
         ))}
       </aside>
@@ -50,6 +68,12 @@ export default function Admin() {
               }>
               <item.icon size={13} />
               {item.label}
+              {item.badge > 0 && (
+                <span className="text-[9px] font-bold px-1 rounded-full"
+                  style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
