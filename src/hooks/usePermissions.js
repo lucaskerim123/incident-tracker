@@ -36,6 +36,12 @@ export const PERMISSION_DEFS = {
   manageUsers:        { label: 'Manage users (suspend, ban)',   group: 'Admin' },
   inviteUsers:        { label: 'Invite new users',              group: 'Admin' },
   viewAdmin:          { label: 'Access the Admin section',      group: 'Admin' },
+  createUser:         { label: 'Create new users',              group: 'Admin' },
+  editUser:           { label: 'Edit user profile (name, email)', group: 'Admin' },
+  changeUserRole:     { label: "Change a user's role",          group: 'Admin' },
+  suspendUser:        { label: 'Suspend / Unsuspend users',     group: 'Admin' },
+  banUser:            { label: 'Ban / Unban users',             group: 'Admin' },
+  resetUserPassword:  { label: 'Reset user passwords',          group: 'Admin' },
 }
 
 export { DEFAULT_PERMISSIONS }

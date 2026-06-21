@@ -249,7 +249,7 @@ export default function UserManagement() {
                       <span className="text-xs text-slate-300 truncate">{u.email ?? u.display_name ?? `#${u.user_code}`}</span>
                       <span className="text-xs text-slate-600">{u.created_at && format(new Date(u.created_at), 'd MMM yyyy')}</span>
                     </div>
-                    {canManage && (
+                    {can.createUser && (
                       <div className="flex items-center gap-1.5 shrink-0">
                         <select value={pendingRoles[u.id] ?? 'viewer'}
                           onChange={e => setPendingRoles(r => ({ ...r, [u.id]: e.target.value }))}
@@ -309,14 +309,14 @@ export default function UserManagement() {
                         )}
                         <span className="text-xs text-slate-600">{u.password_reset_requested_at && format(new Date(u.password_reset_requested_at), 'd MMM yyyy')}</span>
                       </div>
-                      {canManage && (
+                      {can.resetUserPassword && (
                         <button onClick={() => denyPasswordReset(u.id)}
                           className="p-1.5 text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded transition-colors shrink-0" title="Dismiss">
                           <X size={14} />
                         </button>
                       )}
                     </div>
-                    {canManage && (
+                    {can.resetUserPassword && (
                       <div className="px-2.5 pb-2.5 flex gap-2 items-start">
                         <div className="relative flex-1">
                           <KeyRound size={12} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
@@ -346,7 +346,7 @@ export default function UserManagement() {
       </div>
 
       {/* Create User */}
-      {canManage && (
+      {can.createUser && (
         <div className="rounded-xl border mb-4" style={{ background: '#1a1d27', borderColor: '#2a2d3a' }}>
           <button onClick={() => { setOpenCreate(v => !v); setCreateMsg({ text: '', ok: false }) }}
             className="w-full flex items-center justify-between px-4 py-3 text-left">
@@ -457,7 +457,7 @@ export default function UserManagement() {
                         {u.id === user?.id && <span className="text-[10px] text-slate-600">(you)</span>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        {canManage && (
+                        {can.editUser && (
                           <button onClick={() => expandedUser === u.id ? cancelEdit() : openEdit(u)}
                             className={`p-1.5 rounded transition-colors ${expandedUser === u.id ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10'}`}
                             title="Edit user">
@@ -490,7 +490,7 @@ export default function UserManagement() {
                             <label className="text-xs text-slate-500 mb-1 block">Role</label>
                             <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}
                               className={`${inputClass} text-xs`} style={inputStyle}
-                              disabled={!isAdmin && u.id === user?.id}>
+                              disabled={!can.changeUserRole || (!isAdmin && u.id === user?.id)}>
                               {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                             </select>
                           </div>
@@ -510,24 +510,26 @@ export default function UserManagement() {
                           <p className={`text-xs ${editMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{editMsg[u.id].text}</p>
                         )}
 
-                        <div className="pt-2 border-t" style={{ borderColor: '#2a2d3a' }}>
-                          <label className="text-xs text-slate-500 mb-1.5 block">Reset password</label>
-                          <div className="flex gap-2">
-                            <div className="relative flex-1">
-                              <Lock size={13} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
-                              <input type="password" value={pwInput[u.id] ?? ''} onChange={e => setPwInput(p => ({ ...p, [u.id]: e.target.value }))}
-                                placeholder="New password (min 6)" className={`${inputClass} pl-8`} style={inputStyle} />
+                        {can.resetUserPassword && (
+                          <div className="pt-2 border-t" style={{ borderColor: '#2a2d3a' }}>
+                            <label className="text-xs text-slate-500 mb-1.5 block">Reset password</label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Lock size={13} className="absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
+                                <input type="password" value={pwInput[u.id] ?? ''} onChange={e => setPwInput(p => ({ ...p, [u.id]: e.target.value }))}
+                                  placeholder="New password (min 6)" className={`${inputClass} pl-8`} style={inputStyle} />
+                              </div>
+                              <button onClick={() => resetPassword(u.id)} disabled={pwLoading[u.id]}
+                                className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50 shrink-0"
+                                style={{ background: '#374151' }}>
+                                {pwLoading[u.id] ? '…' : 'Reset'}
+                              </button>
                             </div>
-                            <button onClick={() => resetPassword(u.id)} disabled={pwLoading[u.id]}
-                              className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50 shrink-0"
-                              style={{ background: '#374151' }}>
-                              {pwLoading[u.id] ? '…' : 'Reset'}
-                            </button>
+                            {pwMsg[u.id]?.text && (
+                              <p className={`text-xs mt-1.5 ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
+                            )}
                           </div>
-                          {pwMsg[u.id]?.text && (
-                            <p className={`text-xs mt-1.5 ${pwMsg[u.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{pwMsg[u.id].text}</p>
-                          )}
-                        </div>
+                        )}
 
                         <div className="pt-2 border-t" style={{ borderColor: '#2a2d3a' }}>
                           <div className="flex items-center justify-between mb-1.5">
