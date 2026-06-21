@@ -9,8 +9,9 @@ const selectClass = 'text-xs rounded px-2 py-1 border text-slate-300 outline-non
 const selectStyle = { background: '#1a1d27', borderColor: '#2a2d3a' }
 
 export default function SuspendBan() {
-  const { isAdmin } = usePermissions()
-  const [tab, setTab] = useState('suspend')
+  const { isAdmin, can } = usePermissions()
+  const defaultTab = can.suspendUser ? 'suspend' : can.banUser ? 'ban' : 'addban'
+  const [tab, setTab] = useState(defaultTab)
 
   const [allUsers, setAllUsers] = useState([])
   const [suspendedUsers, setSuspendedUsers] = useState([])
@@ -27,6 +28,9 @@ export default function SuspendBan() {
   const [banForm, setBanForm] = useState({ type: 'email', value: '', reason: '' })
   const [banLoading, setBanLoading] = useState(false)
   const [banMsg, setBanMsg] = useState({ text: '', ok: false })
+
+  const [suspendError, setSuspendError] = useState('')
+  const [banError, setBanError] = useState('')
 
   useEffect(() => {
     supabase.from('users').select('id, user_code, display_name, email, role, status').neq('role', 'admin').order('user_code')
@@ -73,7 +77,7 @@ export default function SuspendBan() {
 
   const doUnsuspend = async (targetId) => {
     const { error } = await supabase.rpc('unsuspend_user', { target_id: targetId })
-    if (error) { alert(`Failed: ${error.message}`); return }
+    if (error) { setSuspendError(`Failed: ${error.message}`); return }
     setSuspendedUsers(s => s.filter(x => x.id !== targetId))
     setAllUsers(u => u.map(x => x.id === targetId ? { ...x, status: 'active' } : x))
   }
@@ -103,7 +107,7 @@ export default function SuspendBan() {
 
   const doUnban = async (targetId) => {
     const { error } = await supabase.rpc('unban_user', { target_id: targetId })
-    if (error) { alert(`Failed: ${error.message}`); return }
+    if (error) { setBanError(`Failed: ${error.message}`); return }
     setBannedUsers(b => b.filter(x => x.id !== targetId))
     setAllUsers(u => u.map(x => x.id === targetId ? { ...x, status: 'active' } : x))
   }
@@ -125,8 +129,8 @@ export default function SuspendBan() {
   }
 
   const tabs = [
-    { key: 'suspend', label: 'Suspend a User' },
-    ...(isAdmin ? [{ key: 'ban', label: 'Ban a User' }] : []),
+    ...(can.suspendUser ? [{ key: 'suspend', label: 'Suspend a User' }] : []),
+    ...(can.banUser ? [{ key: 'ban', label: 'Ban a User' }] : []),
     { key: 'addban', label: 'Add IP / Email / User Ban' },
   ]
 
@@ -149,7 +153,10 @@ export default function SuspendBan() {
 
         <div className="p-4">
           {/* ── Suspend Tab ── */}
-          {tab === 'suspend' && (
+          {tab === 'suspend' && !can.suspendUser && (
+            <p className="text-xs text-slate-500 py-4 text-center">You don't have permission to suspend users.</p>
+          )}
+          {tab === 'suspend' && can.suspendUser && (
             <div className="flex flex-col gap-5">
               <form onSubmit={doSuspend} className="flex flex-col gap-3">
                 <div>
@@ -200,6 +207,9 @@ export default function SuspendBan() {
                 </div>
               </form>
 
+              {suspendError && (
+                <p className="text-xs text-red-400">{suspendError}</p>
+              )}
               {suspendedUsers.length > 0 && (
                 <div>
                   <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Currently Suspended ({suspendedUsers.length})</p>
@@ -227,7 +237,7 @@ export default function SuspendBan() {
                             className="px-2 py-1 rounded text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition-colors">
                             Unsuspend
                           </button>
-                          {isAdmin && (
+                          {can.banUser && (
                             <button onClick={() => { setTab('ban'); setBanUserForm(f => ({ ...f, userId: u.id })) }}
                               className="px-2 py-1 rounded text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors">
                               → Ban
@@ -242,8 +252,8 @@ export default function SuspendBan() {
             </div>
           )}
 
-          {/* ── Ban User Tab (admin only) ── */}
-          {tab === 'ban' && isAdmin && (
+          {/* ── Ban User Tab ── */}
+          {tab === 'ban' && can.banUser && (
             <div className="flex flex-col gap-5">
               <form onSubmit={doBanUser} className="flex flex-col gap-3">
                 <div>
@@ -292,6 +302,9 @@ export default function SuspendBan() {
                 </div>
               </form>
 
+              {banError && (
+                <p className="text-xs text-red-400">{banError}</p>
+              )}
               {bannedUsers.length > 0 && (
                 <div>
                   <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Currently Banned ({bannedUsers.length})</p>
