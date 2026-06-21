@@ -24,6 +24,7 @@ import SuspendBan from './pages/admin/SuspendBan'
 import BanList from './pages/admin/BanList'
 import AdminSettings from './pages/admin/AdminSettings'
 import RolePermissions from './pages/admin/RolePermissions'
+import PendingApprovals from './pages/admin/PendingApprovals'
 
 function RequireViewAdmin({ children }) {
   const { can } = usePermissions()
@@ -67,6 +68,7 @@ function AppRoutes() {
           <Route path="bans" element={<BanList />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="roles" element={<RolePermissions />} />
+          <Route path="pending" element={<PendingApprovals />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
